@@ -1,0 +1,22 @@
+apiVersion: v2
+name: agentgateway
+description: >-
+  Krateo blueprint for the agentgateway edge: installs the upstream agentgateway
+  controller and renders the platform GatewayClass + Gateway that per-component
+  HTTPRoutes (installer exposure.type=Gateway), external-dns, and cert-manager-issuers'
+  ACME gatewayRef attach to. Requires the Gateway API CRDs (gateway-api-crds blueprint).
+type: application
+version: CHART_VERSION
+appVersion: "1.4.1"
+home: https://krateo.io
+keywords:
+  - krateo
+  - platformops
+  - gateway
+  - agentgateway
+sources:
+  - https://github.com/agentgateway/agentgateway
+dependencies:
+  - name: agentgateway
+    version: "1.4.1"
+    repository: oci://ghcr.io/agentgateway/charts

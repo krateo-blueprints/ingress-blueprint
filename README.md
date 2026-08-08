@@ -1,14 +1,23 @@
 # krateo-ingress-blueprint
 
-Krateo blueprints for the edge-support layer: **DNS publication** and **certificate
-issuance**. Both are things the CMP demo needed on every cluster, were installed by
-hand, and were not recoverable when a cluster was rebuilt — which is the reason they
-exist here as blueprints rather than as runbook steps.
+Krateo blueprints for the edge-support layer: the **Gateway** itself, **DNS publication**
+and **certificate issuance**. These are things the CMP demo needed on every cluster, were
+installed by hand, and were not recoverable when a cluster was rebuilt — which is the reason
+they exist here as blueprints rather than as runbook steps. Per the platform principle that
+**everything is a blueprint, even an external tool**, the Gateway (agentgateway) and the
+Gateway API CRDs are blueprints too — so `exposure.type: Gateway` + `features.ingress` stands
+up the whole edge from one Installer CR, with no BYO step.
 
 | blueprint | what it installs |
 |---|---|
+| `gateway-api-crds` | The upstream Kubernetes Gateway API **standard CRDs** (`GatewayClass`, `Gateway`, `HTTPRoute`, `ReferenceGrant`, `GRPCRoute`), bundle-version v1.3.0. Shared edge infra everything below (and the installer's `HTTPRoute`s) requires. |
+| `agentgateway` | Upstream **agentgateway** controller plus the platform `GatewayClass` + `Gateway` that per-component `HTTPRoute`s, external-dns and cert-manager's ACME `gatewayRef` all attach to. |
 | `external-dns` | Upstream ExternalDNS, publishing records for Gateway API `HTTPRoute`s and `Service`s to an external provider. |
 | `cert-manager-issuers` | Upstream cert-manager plus the platform's ClusterIssuers: an internal self-signed CA chain, and optionally a public ACME issuer solving HTTP-01 through the Gateway API edge. |
+
+**Install order** (dep-chained in the registration below): `gateway-api-crds` →
+`agentgateway` → `cert-manager-issuers` / `external-dns`. The CRDs must be served before the
+Gateway; the Gateway must exist before the ACME `gatewayRef` and the `HTTPRoute`s attach to it.
 
 ## What a blueprint is here
 
@@ -35,6 +44,16 @@ add. Upstream defaults apply to everything not listed.
 
 **`cert-manager-issuers`** — `internalCA{enabled,name}`,
 `acme{enabled,email,server,gatewayRef}`
+
+**`agentgateway`** — `gatewayClassName`, `controllerName`, `gateway{name,listeners}`.
+`controllerName` is written to both the `GatewayClass` and the controller (they must match);
+`gateway.name` must equal the installer's `exposure.gatewayRef.name` and cert-manager's
+`acme.gatewayRef.name`. `gateway.listeners` passes through to the `Gateway` spec (default: an
+HTTP `:80` listener for ACME HTTP-01 + HTTPRoutes; add an HTTPS `:443` listener with a
+cert-manager cert for production).
+
+**`gateway-api-crds`** — none. Ships the upstream standard CRDs verbatim; upgrade by
+re-vendoring `files/standard-install.yaml` and bumping the chart appVersion.
 
 ### Two settings that bite
 
@@ -71,9 +90,12 @@ vendors its dependencies, and pushes to `oci://ghcr.io/<owner>/charts`.
 
 ## Not included
 
-- **agentgateway** — the Gateway API control/data plane (decision D22b). Large
-  surface with its own CRDs, `GatewayClass` and HBONE mTLS config; folding it in
-  would couple installer releases to work that is still settling. It stays the
-  documented provisioner step in
-  `krateo-acmp/assembly/hardening/transit/install/install.md`.
 - **Kyverno tenant onboarding** — owned by the C2 workstream in `krateo-saas`.
+
+> **agentgateway is now included** (`agentgateway` + `gateway-api-crds` above). It was
+> previously deferred (D22b) and kept as a manual provisioner step; per the
+> everything-is-a-blueprint principle it is now a blueprint, so the edge no longer has a BYO
+> Gateway. The upstream agentgateway chart (`oci://ghcr.io/agentgateway/charts/agentgateway`)
+> is bundled as a dependency; the blueprint adds only the `GatewayClass` + `Gateway` it does
+> not ship. HBONE mTLS and the deeper controller surface stay at upstream defaults (not
+> exposed on the generated CRD) until there is a reason to curate them.

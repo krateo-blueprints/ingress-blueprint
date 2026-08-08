@@ -1,0 +1,17 @@
+{{/*
+Render-time guards for required-but-emptiable fields (schema `required` only checks presence,
+and minLength cannot be used because the chart's own defaults must satisfy its schema for
+`helm lint`) — the same approach as external-dns/guards.yaml and cert-manager-issuers.
+*/}}
+{{- if not .Values.gateway.name }}
+{{- fail "agentgateway: gateway.name is required — it must match the installer's exposure.gatewayRef.name and cert-manager-issuers' acme.gatewayRef.name." }}
+{{- end }}
+{{- if not .Values.gateway.listeners }}
+{{- fail "agentgateway: gateway.listeners is required — at least an HTTP :80 listener is needed for ACME HTTP-01 challenges and HTTPRoute attachment." }}
+{{- end }}
+{{- if not .Values.gatewayClassName }}
+{{- fail "agentgateway: gatewayClassName is required (and must match the agentgateway: passthrough)." }}
+{{- end }}
+{{- if not .Values.controllerName }}
+{{- fail "agentgateway: controllerName is required and must match the agentgateway controller's AGW_CONTROLLER_NAME (the agentgateway: passthrough)." }}
+{{- end }}

@@ -1,0 +1,34 @@
+# Krateo-facing surface. Upstream defaults apply to everything not listed.
+
+# The GatewayClass this edge uses. controllerName is written to BOTH the GatewayClass
+# (spec.controllerName) and the agentgateway controller (AGW_CONTROLLER_NAME), so they must
+# match — the controller only reconciles a GatewayClass whose controllerName equals its own.
+# If you change these, change them in the `agentgateway:` passthrough below too (Helm cannot
+# template subchart values, so the mapping is static — same caveat as external-dns).
+gatewayClassName: agentgateway
+controllerName: agentgateway.dev/agentgateway
+
+# The platform Gateway the routes/DNS/certs attach to. `name` MUST match the installer's
+# exposure.gatewayRef.name and cert-manager-issuers' acme.gatewayRef.name (default krateo-gateway).
+gateway:
+  name: krateo-gateway
+  # Listeners passed through verbatim to the Gateway spec. The default is a single HTTP :80
+  # listener, which serves ACME HTTP-01 challenges (cert-manager's gatewayHTTPRoute solver) and
+  # HTTP-facing HTTPRoutes. For production add an HTTPS :443 listener with a cert-manager-issued
+  # TLS cert (protocol: HTTPS, tls.certificateRefs), and restrict allowedRoutes as needed.
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 80
+      allowedRoutes:
+        namespaces:
+          from: All
+
+# ---------------------------------------------------------------------------
+# Passthrough to the upstream agentgateway controller chart. Helm places subchart values under
+# a key named after the subchart and cannot compute them at render time — so the mapping is
+# static here. Keep controllerName/gatewayClassName in sync with the top-level values above.
+# ---------------------------------------------------------------------------
+agentgateway:
+  controllerName: agentgateway.dev/agentgateway
+  gatewayClassName: agentgateway

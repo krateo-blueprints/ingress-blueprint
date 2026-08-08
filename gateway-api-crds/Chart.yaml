@@ -1,0 +1,19 @@
+apiVersion: v2
+name: gateway-api-crds
+description: >-
+  Krateo blueprint shipping the upstream Kubernetes Gateway API standard CRDs
+  (GatewayClass, Gateway, HTTPRoute, ReferenceGrant, GRPCRoute). Shared edge
+  infrastructure that the agentgateway blueprint, the installer's
+  exposure.type=Gateway HTTPRoutes, and cert-manager-issuers' ACME gatewayRef all
+  require. Bundle-version v1.3.0, standard channel.
+type: application
+version: CHART_VERSION
+appVersion: "v1.3.0"
+home: https://krateo.io
+keywords:
+  - krateo
+  - platformops
+  - gateway-api
+  - crds
+sources:
+  - https://github.com/kubernetes-sigs/gateway-api

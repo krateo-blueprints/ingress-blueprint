@@ -1,0 +1,48 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema",
+  "type": "object",
+  "title": "cert-manager and platform issuers",
+  "description": "cert-manager plus the platform's internal CA and optional public ACME ClusterIssuers.",
+  "additionalProperties": false,
+  "required": ["internalCA", "acme"],
+  "properties": {
+    "global": { "type": "object", "title": "Global values" },
+    "cert-manager": {
+      "type": "object",
+      "title": "Upstream chart values",
+      "description": "Passthrough to the upstream cert-manager chart; set by this blueprint's values.yaml."
+    },
+    "internalCA": {
+      "type": "object",
+      "title": "Internal CA",
+      "description": "Self-signed CA chain used as the platform trust anchor. Certificates issued by it are not publicly trusted.",
+      "additionalProperties": false,
+      "required": ["enabled"],
+      "properties": {
+        "enabled": { "type": "boolean", "title": "Enable internal CA", "default": true },
+        "name": { "type": "string", "title": "ClusterIssuer name", "minLength": 1, "default": "krateo-selfsigned-ca" }
+      }
+    },
+    "acme": {
+      "type": "object",
+      "title": "Public ACME issuer",
+      "description": "Publicly trusted certificates via ACME (Let's Encrypt), solving HTTP-01 through the Gateway API edge. Requires a reachable Gateway and correct public DNS before it can succeed.",
+      "additionalProperties": false,
+      "required": ["enabled"],
+      "properties": {
+        "enabled": { "type": "boolean", "title": "Enable ACME", "default": false },
+        "email": { "type": "string", "title": "ACME account email", "description": "Required when enabled. Let's Encrypt sends expiry notices here." },
+        "server": { "type": "string", "title": "ACME directory URL", "default": "https://acme-v02.api.letsencrypt.org/directory" },
+        "gatewayRef": {
+          "type": "object",
+          "title": "Challenge Gateway",
+          "additionalProperties": false,
+          "properties": {
+            "name": { "type": "string", "minLength": 1 },
+            "namespace": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    }
+  }
+}

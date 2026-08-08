@@ -1,0 +1,55 @@
+name: release-oci
+
+# Adapted from the single-chart blueprint repos (krateo-selfservice-blueprint,
+# krateo-auth-blueprint). Difference: this repo ships TWO blueprints, so the
+# package/push step iterates over the chart directories instead of hardcoding
+# `chart`. Everything else — semver tag trigger, CHART_VERSION substitution,
+# GHCR target — is unchanged, so releases stay consistent with the other repos.
+
+on:
+  push:
+    tags: ["[0-9]+.[0-9]+.[0-9]+"]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  package-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+
+      - name: Resolve version and registry
+        run: |
+          echo "VERSION=${GITHUB_REF_NAME}" >> "$GITHUB_ENV"
+          echo "OCI_REPO=oci://ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/charts" >> "$GITHUB_ENV"
+
+      - name: Log in to GHCR
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | \
+            helm registry login ghcr.io --username "${{ github.actor }}" --password-stdin
+
+      - name: Package and push blueprint charts
+        run: |
+          set -euo pipefail
+          # Every directory holding a Chart.yaml is a blueprint in this repo.
+          for d in */Chart.yaml; do
+            d="$(dirname "$d")"
+            sed -i "s/CHART_VERSION/${VERSION}/g" "$d/Chart.yaml"
+            name=$(grep -E '^name:' "$d/Chart.yaml" | awk '{print $2}')
+
+            # These blueprints depend on upstream charts (external-dns, cert-manager),
+            # so the dependency must be vendored into the package before push —
+            # a consumer pulling from OCI cannot resolve dependencies themselves.
+            helm dependency build "$d"
+
+            helm package "$d" --destination /tmp/pkg
+            helm push "/tmp/pkg/${name}-${VERSION}.tgz" "${OCI_REPO}"
+            echo "pushed ${name}:${VERSION} -> ${OCI_REPO}"
+          done

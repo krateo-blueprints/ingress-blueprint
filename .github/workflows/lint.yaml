@@ -1,0 +1,65 @@
+name: lint
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  helm-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+
+      - name: Lint, render, determinism + hook-free gate
+        run: |
+          d=chart
+          # Placeholders that would break `helm template` locally.
+          sed -i "s/CHART_VERSION/0.0.0-ci/g" "$d/Chart.yaml"
+          sed -i "s/0.2.310/0.0.0-ci/g" "$d/values.yaml"
+
+          # No subchart dependencies (k3k is a cluster-scoped controller, not a
+          # subchart), so `helm dependency build` is a no-op / not required.
+          helm lint "$d"
+
+          # Render twice; must be byte-identical (no randAlphaNum/uuidv4/now reaching a manifest).
+          helm template rel "$d" --namespace selfservice \
+            --set instanceName=demo \
+            --set childAdmin.username=admin \
+            --set childAdmin.password=changeme > /tmp/r1.yaml
+          helm template rel "$d" --namespace selfservice \
+            --set instanceName=demo \
+            --set childAdmin.username=admin \
+            --set childAdmin.password=changeme > /tmp/r2.yaml
+          if ! diff -q /tmp/r1.yaml /tmp/r2.yaml > /dev/null; then
+            echo "::error::NON-DETERMINISTIC - two renders differ"
+            diff /tmp/r1.yaml /tmp/r2.yaml | head -30
+            exit 1
+          fi
+
+          # Helm hooks must be stripped - the Krateo composition-dynamic-controller
+          # ServiceAccount cannot get/delete hook Jobs, so hooked charts never converge.
+          if grep -q 'helm.sh/hook' /tmp/r1.yaml; then
+            echo "::error::emits Helm hooks (must be stripped for the CDC ServiceAccount)"
+            grep -n 'helm.sh/hook' /tmp/r1.yaml | head
+            exit 1
+          fi
+
+          # Zero-Job / no-image design: the nested control plane + tenant seeding
+          # is fully declarative (k3k Cluster CR + addon Secret). No Job may render.
+          if grep -q 'kind: Job' /tmp/r1.yaml; then
+            echo "::error::emits a Job (design is zero-Job: k3k Cluster + addon Secret)"
+            exit 1
+          fi
+
+          # The k3k Cluster CR must render, wired to the bootstrap addon Secret.
+          grep -q 'kind: Cluster' /tmp/r1.yaml || { echo "::error::k3k Cluster CR did not render"; exit 1; }
+          grep -q 'secretRef:' /tmp/r1.yaml   || { echo "::error::Cluster CR has no addon secretRef"; exit 1; }
+          # The bootstrap Secret must carry the child installer HelmChart + the
+          # tenant-admin KrateoAuthBasic CR (per-tenant creds baked in).
+          grep -q 'kind: HelmChart' /tmp/r1.yaml      || { echo "::error::child installer HelmChart CR missing from bootstrap Secret"; exit 1; }
+          grep -q 'kind: KrateoAuthBasic' /tmp/r1.yaml || { echo "::error::tenant-admin KrateoAuthBasic CR missing from bootstrap Secret"; exit 1; }

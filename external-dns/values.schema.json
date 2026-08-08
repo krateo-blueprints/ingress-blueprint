@@ -1,0 +1,100 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema",
+  "type": "object",
+  "title": "ExternalDNS",
+  "description": "Publishes DNS records for Gateway API and Service resources to an external DNS provider.",
+  "additionalProperties": false,
+  "required": [
+    "provider",
+    "domainFilters",
+    "credentialsSecretRef",
+    "txtOwnerId"
+  ],
+  "properties": {
+    "global": {
+      "type": "object",
+      "title": "Global values",
+      "description": "Helm global values (injected when used as a subchart)."
+    },
+    "provider": {
+      "type": "string",
+      "title": "DNS provider",
+      "description": "Which external DNS provider to publish to.",
+      "enum": [
+        "cloudflare",
+        "google",
+        "aws",
+        "azure"
+      ],
+      "default": "cloudflare"
+    },
+    "domainFilters": {
+      "type": "array",
+      "title": "Managed zones",
+      "description": "Only these DNS zones may be modified. Leave empty to allow every zone the credential can reach (strongly discouraged on a shared account).",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "policy": {
+      "type": "string",
+      "title": "Record policy",
+      "description": "sync creates AND deletes records to match cluster state, so records are removed when their Service or Gateway is deleted - including on a cluster teardown. upsert-only never deletes.",
+      "enum": [
+        "sync",
+        "upsert-only",
+        "create-only"
+      ],
+      "default": "upsert-only"
+    },
+    "credentialsSecretRef": {
+      "type": "object",
+      "title": "Provider credential",
+      "description": "Reference to an existing Secret holding the provider API token. The Secret is placed out-of-band and is never part of this blueprint.",
+      "additionalProperties": false,
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "title": "Secret name"
+        },
+        "key": {
+          "type": "string",
+          "title": "Secret key",
+          "default": "api-token"
+        }
+      }
+    },
+    "sources": {
+      "type": "array",
+      "title": "Watched sources",
+      "description": "Kubernetes resources to derive DNS records from. gateway-httproute is required for a Gateway API edge.",
+      "items": {
+        "type": "string",
+        "enum": [
+          "gateway-httproute",
+          "service",
+          "ingress",
+          "gateway-grpcroute"
+        ]
+      },
+      "default": [
+        "gateway-httproute",
+        "service"
+      ]
+    },
+    "txtOwnerId": {
+      "type": "string",
+      "title": "Owner ID",
+      "description": "Identifier written into ownership TXT records. Must be unique per cluster when several clusters share a DNS zone, otherwise they will fight over the same records."
+    },
+    "external-dns": {
+      "type": "object",
+      "title": "Upstream chart values",
+      "description": "Passthrough to the upstream external-dns chart. Set by this blueprint's values.yaml; not intended for direct use."
+    }
+  }
+}

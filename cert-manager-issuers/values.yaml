@@ -1,0 +1,22 @@
+# Internal self-signed CA chain. Always rendered: the platform needs a trust
+# anchor before any public certificate exists.
+internalCA:
+  enabled: true
+  name: krateo-selfsigned-ca
+
+# Public ACME issuer. Off by default because it needs a real account email and a
+# reachable Gateway to answer the HTTP-01 challenge.
+acme:
+  enabled: false
+  email: ""
+  server: https://acme-v02.api.letsencrypt.org/directory
+  # Gateway that serves the HTTP-01 challenge (Gateway API, not Ingress).
+  gatewayRef:
+    name: krateo-edge
+    namespace: krateo-system
+
+# Passthrough to the upstream cert-manager chart.
+cert-manager:
+  installCRDs: true
+  crds:
+    enabled: true

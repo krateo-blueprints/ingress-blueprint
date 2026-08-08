@@ -1,0 +1,17 @@
+apiVersion: v2
+name: external-dns
+description: >-
+  Krateo blueprint for ExternalDNS — publishes DNS records for Gateway API
+  and Service/Ingress resources to an external provider. Depends on the
+  upstream chart; exposes only the surface a platform operator should set.
+type: application
+version: CHART_VERSION
+appVersion: "0.21.1"
+home: https://krateo.io
+keywords: [krateo, platformops, dns, ingress]
+sources:
+  - https://github.com/kubernetes-sigs/external-dns
+dependencies:
+  - name: external-dns
+    version: "1.21.1"
+    repository: https://kubernetes-sigs.github.io/external-dns/

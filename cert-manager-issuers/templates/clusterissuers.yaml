@@ -1,0 +1,71 @@
+{{/*
+Platform ClusterIssuers. Adapted from
+braghettos/krateo-acmp assembly/hardening/transit/cert-manager/clusterissuer.yaml,
+with the <ACME_ACCOUNT_EMAIL> placeholder replaced by a schema-validated value.
+
+Ordering note: the self-signed bootstrap issues the root CA Certificate, which in
+turn backs the CA ClusterIssuer. cert-manager resolves that chain itself, so no
+explicit ordering is needed here.
+*/}}
+{{- if .Values.internalCA.enabled }}
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: krateo-selfsigned-bootstrap
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: krateo-root-ca
+  namespace: cert-manager
+spec:
+  isCA: true
+  commonName: krateo-root-ca
+  secretName: krateo-root-ca-key-pair
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  issuerRef:
+    name: krateo-selfsigned-bootstrap
+    kind: ClusterIssuer
+    group: cert-manager.io
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: {{ .Values.internalCA.name }}
+spec:
+  ca:
+    secretName: krateo-root-ca-key-pair
+{{- end }}
+
+{{- if .Values.acme.enabled }}
+{{- if not .Values.acme.email }}
+{{- fail "cert-manager-issuers: acme.enabled is true but acme.email is empty. ACME registration requires an account email." }}
+{{- end }}
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: krateo-acme
+spec:
+  acme:
+    server: {{ .Values.acme.server | quote }}
+    email: {{ .Values.acme.email | quote }}
+    privateKeySecretRef:
+      name: krateo-acme-account-key
+    solvers:
+      - http01:
+          {{/*
+            HTTP-01 is solved through the Gateway API edge, not an Ingress. This
+            is why no DNS provider credential is needed here — the challenge is
+            served over HTTP by the same Gateway that terminates TLS.
+          */}}
+          gatewayHTTPRoute:
+            parentRefs:
+              - name: {{ .Values.acme.gatewayRef.name }}
+                namespace: {{ .Values.acme.gatewayRef.namespace }}
+                kind: Gateway
+{{- end }}

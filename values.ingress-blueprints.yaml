@@ -1,0 +1,75 @@
+# Installer catalog registration — ingress/DNS tier
+#
+# Registers the two edge-support blueprints as installer components, following the
+# same additive `.spec.components` pattern as assembly/installer-catalog's D25 auth
+# blueprints. Merge this into the installer values; `inst.componentsYaml` appends
+# rather than replaces, so the base component set is untouched.
+#
+# Gated behind `features.ingress` so a cluster that fronts Krateo some other way
+# (an existing ingress controller, a cloud LB, a service mesh) is unaffected.
+#
+# PREREQUISITES
+#   1. Both blueprints published to an OCI registry the installer can pull
+#      (`repo:` below, or the default `ociRepo` if published alongside the platform).
+#   2. The Cloudflare API token Secret placed out-of-band, in the namespace the
+#      external-dns composition renders into. The blueprint takes a reference only —
+#      no credential is ever part of a blueprint's values or its Composition CR.
+#
+# NOT INCLUDED, deliberately:
+#   - agentgateway — large surface with its own CRDs, GatewayClass and HBONE mTLS
+#     config. Folding it in would couple installer releases to that work while D22b
+#     is still settling. Keep it as the documented cluster-provisioner step in
+#     assembly/hardening/transit/install/install.md until it stabilises.
+#   - kyverno tenant onboarding — owned by the C2 workstream in krateo-saas.
+
+features:
+  # New gate. Off by default: adding a component must not change existing installs.
+  ingress: false
+
+components:
+  # cert-manager first: external-dns does not depend on it, but the edge does, and
+  # a TLS-less edge is the more confusing failure of the two to debug.
+  - name: cert-manager-issuers
+    kind: CertManagerIssuers
+    chart: cert-manager-issuers
+    version: "0.1.0"
+    tier: platform
+    feature: ingress
+
+  - name: external-dns
+    kind: ExternalDns
+    chart: external-dns
+    version: "0.1.0"
+    tier: platform
+    feature: ingress
+    deps:
+      # Not a hard runtime dependency — external-dns publishes records regardless of
+      # TLS. Ordered so the edge's certificates are being issued before its hostnames
+      # become publicly resolvable, rather than after.
+      - cert-manager-issuers
+
+componentValues:
+  cert-manager-issuers:
+    internalCA:
+      enabled: true
+    acme:
+      # Enable once public DNS resolves to the Gateway — HTTP-01 cannot succeed
+      # before the hostname points at the edge that serves the challenge.
+      enabled: false
+      email: ""            # REQUIRED when acme.enabled is true
+      gatewayRef:
+        name: krateo-edge
+        namespace: krateo-system
+
+  external-dns:
+    provider: cloudflare
+    policy: upsert-only    # `sync` also DELETES records when their source object goes away
+    domainFilters:
+      - krateo.dev
+    sources:
+      - gateway-httproute  # required for the agentgateway edge
+      - service
+    txtOwnerId: ""         # REQUIRED, and must be unique per cluster sharing the zone
+    credentialsSecretRef:
+      name: cloudflare-api-token
+      key: api-token

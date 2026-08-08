@@ -1,0 +1,16 @@
+{{/*
+Render-time guards. The schema marks these `required` (so they are required fields
+on the generated CRD), but `required` only checks presence — an empty string passes.
+minLength cannot be used, because the chart's own defaults must satisfy its schema
+for `helm lint` to pass. So emptiness is caught here, the same way
+cert-manager-issuers guards acme.email.
+*/}}
+{{- if not .Values.txtOwnerId }}
+{{- fail "external-dns: txtOwnerId is required. Two clusters sharing a DNS zone without distinct owner IDs will overwrite each other's records." }}
+{{- end }}
+{{- if not .Values.credentialsSecretRef.name }}
+{{- fail "external-dns: credentialsSecretRef.name is required — the provider API token Secret must be placed out-of-band and referenced here." }}
+{{- end }}
+{{- if and (eq .Values.policy "sync") (not .Values.domainFilters) }}
+{{- fail "external-dns: policy=sync with empty domainFilters lets this instance DELETE records in every zone the credential can reach. Set domainFilters, or use policy=upsert-only." }}
+{{- end }}

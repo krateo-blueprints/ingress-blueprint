@@ -1,0 +1,3 @@
+# No tunable values. This blueprint ships the upstream Gateway API standard CRDs
+# (bundle-version v1.3.0) verbatim; there is nothing to configure. To upgrade, replace
+# files/standard-install.yaml with a newer release and bump the chart appVersion.

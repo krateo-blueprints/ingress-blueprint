@@ -1,0 +1,23 @@
+{{/*
+  The platform GatewayClass + Gateway. The upstream agentgateway subchart installs the controller
+  (it reconciles the GatewayClass whose controllerName matches its AGW_CONTROLLER_NAME); upstream
+  ships NEITHER a GatewayClass nor a Gateway, so this renders both. Requires the Gateway API CRDs
+  (gateway-api-crds blueprint) to be served — otherwise the Composition apply fails on an unknown
+  kind, so install/order gateway-api-crds first.
+*/}}
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: {{ .Values.gatewayClassName }}
+spec:
+  controllerName: {{ .Values.controllerName }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: {{ .Values.gateway.name }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  gatewayClassName: {{ .Values.gatewayClassName }}
+  listeners:
+    {{- toYaml .Values.gateway.listeners | nindent 4 }}

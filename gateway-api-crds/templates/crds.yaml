@@ -1,0 +1,8 @@
+{{/*
+  Upstream Gateway API standard CRDs (bundle-version v1.3.0, standard channel), vendored
+  verbatim from kubernetes-sigs/gateway-api in files/standard-install.yaml and emitted RAW via
+  .Files.Get — so their (large) content is never run through the template engine. Rendered as
+  composition-managed resources (not helm crds/) so a version bump propagates on reconcile.
+  To upgrade: replace files/standard-install.yaml with a newer release and bump Chart appVersion.
+*/}}
+{{ .Files.Get "files/standard-install.yaml" }}

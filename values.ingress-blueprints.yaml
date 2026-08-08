@@ -1,25 +1,26 @@
-# Installer catalog registration — ingress/DNS tier
+# Installer catalog registration — ingress / edge tier
 #
-# Registers the two edge-support blueprints as installer components, following the
-# same additive `.spec.components` pattern as assembly/installer-catalog's D25 auth
+# Registers the edge-support blueprints as installer components, following the same
+# additive `.spec.components` pattern as assembly/installer-catalog's D25 auth
 # blueprints. Merge this into the installer values; `inst.componentsYaml` appends
 # rather than replaces, so the base component set is untouched.
 #
 # Gated behind `features.ingress` so a cluster that fronts Krateo some other way
 # (an existing ingress controller, a cloud LB, a service mesh) is unaffected.
 #
+# ORDER (dep-chained below): gateway-api-crds -> agentgateway -> cert-manager-issuers /
+# external-dns. The CRDs must be served before the Gateway; the Gateway must exist before
+# the ACME gatewayRef and the installer's per-component HTTPRoutes (exposure.type=Gateway)
+# attach to it. `gateway.name` here must equal exposure.gatewayRef.name and acme.gatewayRef.name.
+#
 # PREREQUISITES
-#   1. Both blueprints published to an OCI registry the installer can pull
+#   1. The blueprints published to an OCI registry the installer can pull
 #      (`repo:` below, or the default `ociRepo` if published alongside the platform).
 #   2. The Cloudflare API token Secret placed out-of-band, in the namespace the
 #      external-dns composition renders into. The blueprint takes a reference only —
 #      no credential is ever part of a blueprint's values or its Composition CR.
 #
 # NOT INCLUDED, deliberately:
-#   - agentgateway — large surface with its own CRDs, GatewayClass and HBONE mTLS
-#     config. Folding it in would couple installer releases to that work while D22b
-#     is still settling. Keep it as the documented cluster-provisioner step in
-#     assembly/hardening/transit/install/install.md until it stabilises.
 #   - kyverno tenant onboarding — owned by the C2 workstream in krateo-saas.
 
 features:
@@ -27,14 +28,33 @@ features:
   ingress: false
 
 components:
-  # cert-manager first: external-dns does not depend on it, but the edge does, and
-  # a TLS-less edge is the more confusing failure of the two to debug.
+  # 1. Gateway API CRDs first — shared infra the Gateway, HTTPRoutes and ACME gatewayRef need.
+  - name: gateway-api-crds
+    kind: GatewayApiCrds
+    chart: gateway-api-crds
+    version: "0.1.0"
+    tier: platform
+    feature: ingress
+
+  # 2. The Gateway (agentgateway controller + GatewayClass + Gateway). Needs the CRDs served.
+  - name: agentgateway
+    kind: Agentgateway
+    chart: agentgateway
+    version: "0.1.0"
+    tier: platform
+    feature: ingress
+    deps:
+      - gateway-api-crds
+
+  # 3. cert-manager: its ACME issuer solves HTTP-01 through the Gateway, so the Gateway first.
   - name: cert-manager-issuers
     kind: CertManagerIssuers
     chart: cert-manager-issuers
     version: "0.1.0"
     tier: platform
     feature: ingress
+    deps:
+      - agentgateway
 
   - name: external-dns
     kind: ExternalDns
@@ -43,12 +63,26 @@ components:
     tier: platform
     feature: ingress
     deps:
-      # Not a hard runtime dependency — external-dns publishes records regardless of
-      # TLS. Ordered so the edge's certificates are being issued before its hostnames
-      # become publicly resolvable, rather than after.
+      # Ordered after the Gateway (it publishes records for the Gateway's HTTPRoutes) and
+      # after cert-manager, so certs are issuing before the hostnames become resolvable.
+      - agentgateway
       - cert-manager-issuers
 
 componentValues:
+  agentgateway:
+    # gateway.name MUST match exposure.gatewayRef.name (installer) and acme.gatewayRef.name below.
+    gatewayClassName: agentgateway
+    controllerName: agentgateway.dev/agentgateway
+    gateway:
+      name: krateo-gateway
+      listeners:
+        - name: http
+          protocol: HTTP
+          port: 80
+          allowedRoutes:
+            namespaces:
+              from: All
+
   cert-manager-issuers:
     internalCA:
       enabled: true
@@ -58,7 +92,7 @@ componentValues:
       enabled: false
       email: ""            # REQUIRED when acme.enabled is true
       gatewayRef:
-        name: krateo-edge
+        name: krateo-gateway
         namespace: krateo-system
 
   external-dns:

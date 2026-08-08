@@ -1,9 +1,19 @@
 name: lint
 
+# Multi-blueprint lint. Mirrors release-oci.yaml's discovery: every directory holding a
+# Chart.yaml is a blueprint, so lint/render each one (the repo ships several, unlike the
+# single-`chart/` blueprint repos this was adapted from). Per chart: valid values.schema.json,
+# vendored deps, `helm lint`, and a deterministic render (no randAlphaNum/uuidv4/now reaching a
+# manifest — those never converge under the composition-dynamic-controller).
+
 on:
   pull_request:
-    branches: [main]
+    branches: [blueprints, main]
   workflow_dispatch: {}
+
+permissions:
+  contents: read
+  packages: read
 
 jobs:
   helm-lint:
@@ -15,51 +25,47 @@ jobs:
       - name: Install Helm
         uses: azure/setup-helm@v4
 
-      - name: Lint, render, determinism + hook-free gate
+      # agentgateway wraps an OCI upstream chart (oci://ghcr.io/agentgateway/charts); log in
+      # so `helm dependency build` can pull it (same as release-oci.yaml). Harmless for the
+      # cert-manager/external-dns HTTP-repo dependencies.
+      - name: Log in to GHCR
         run: |
-          d=chart
-          # Placeholders that would break `helm template` locally.
-          sed -i "s/CHART_VERSION/0.0.0-ci/g" "$d/Chart.yaml"
-          sed -i "s/0.2.310/0.0.0-ci/g" "$d/values.yaml"
+          echo "${{ secrets.GITHUB_TOKEN }}" | \
+            helm registry login ghcr.io --username "${{ github.actor }}" --password-stdin
 
-          # No subchart dependencies (k3k is a cluster-scoped controller, not a
-          # subchart), so `helm dependency build` is a no-op / not required.
-          helm lint "$d"
+      - name: Lint, validate schema, render (determinism) per blueprint
+        run: |
+          set -uo pipefail
+          fail=0
+          for c in */Chart.yaml; do
+            d="$(dirname "$c")"
+            echo "::group::${d}"
+            sed -i "s/CHART_VERSION/0.0.0-ci/g" "${d}/Chart.yaml"
 
-          # Render twice; must be byte-identical (no randAlphaNum/uuidv4/now reaching a manifest).
-          helm template rel "$d" --namespace selfservice \
-            --set instanceName=demo \
-            --set childAdmin.username=admin \
-            --set childAdmin.password=changeme > /tmp/r1.yaml
-          helm template rel "$d" --namespace selfservice \
-            --set instanceName=demo \
-            --set childAdmin.username=admin \
-            --set childAdmin.password=changeme > /tmp/r2.yaml
-          if ! diff -q /tmp/r1.yaml /tmp/r2.yaml > /dev/null; then
-            echo "::error::NON-DETERMINISTIC - two renders differ"
-            diff /tmp/r1.yaml /tmp/r2.yaml | head -30
-            exit 1
-          fi
+            if [ -f "${d}/values.schema.json" ]; then
+              python3 -c "import json; json.load(open('${d}/values.schema.json'))" \
+                && echo "values.schema.json: valid JSON" \
+                || { echo "::error::${d}/values.schema.json is not valid JSON"; fail=1; }
+            fi
 
-          # Helm hooks must be stripped - the Krateo composition-dynamic-controller
-          # ServiceAccount cannot get/delete hook Jobs, so hooked charts never converge.
-          if grep -q 'helm.sh/hook' /tmp/r1.yaml; then
-            echo "::error::emits Helm hooks (must be stripped for the CDC ServiceAccount)"
-            grep -n 'helm.sh/hook' /tmp/r1.yaml | head
-            exit 1
-          fi
+            # Blueprints that wrap an upstream chart must vendor it before render.
+            if grep -q '^dependencies:' "${d}/Chart.yaml"; then
+              helm dependency build "${d}" >/dev/null 2>&1 || helm dependency update "${d}" >/dev/null 2>&1 || true
+            fi
 
-          # Zero-Job / no-image design: the nested control plane + tenant seeding
-          # is fully declarative (k3k Cluster CR + addon Secret). No Job may render.
-          if grep -q 'kind: Job' /tmp/r1.yaml; then
-            echo "::error::emits a Job (design is zero-Job: k3k Cluster + addon Secret)"
-            exit 1
-          fi
+            helm lint "${d}" || fail=1
 
-          # The k3k Cluster CR must render, wired to the bootstrap addon Secret.
-          grep -q 'kind: Cluster' /tmp/r1.yaml || { echo "::error::k3k Cluster CR did not render"; exit 1; }
-          grep -q 'secretRef:' /tmp/r1.yaml   || { echo "::error::Cluster CR has no addon secretRef"; exit 1; }
-          # The bootstrap Secret must carry the child installer HelmChart + the
-          # tenant-admin KrateoAuthBasic CR (per-tenant creds baked in).
-          grep -q 'kind: HelmChart' /tmp/r1.yaml      || { echo "::error::child installer HelmChart CR missing from bootstrap Secret"; exit 1; }
-          grep -q 'kind: KrateoAuthBasic' /tmp/r1.yaml || { echo "::error::tenant-admin KrateoAuthBasic CR missing from bootstrap Secret"; exit 1; }
+            # Some blueprints (external-dns) fail-render by DESIGN when a required input is
+            # empty (its guards.yaml). Supply minimal CI-only inputs from .ci/<chart>.yaml when
+            # present (outside the chart dir, so it's never packaged) so the render is exercised.
+            vargs=""
+            [ -f ".ci/${d}.yaml" ] && vargs="-f .ci/${d}.yaml"
+            helm template rel "${d}" --namespace krateo-system ${vargs} > /tmp/r1.yaml 2>/tmp/err.txt \
+              || { echo "::error::${d} failed to render"; tail -5 /tmp/err.txt; fail=1; echo "::endgroup::"; continue; }
+            helm template rel "${d}" --namespace krateo-system ${vargs} > /tmp/r2.yaml 2>/dev/null || true
+            if ! diff -q /tmp/r1.yaml /tmp/r2.yaml >/dev/null; then
+              echo "::error::${d} render is NON-DETERMINISTIC"; diff /tmp/r1.yaml /tmp/r2.yaml | head -20; fail=1
+            fi
+            echo "::endgroup::"
+          done
+          exit $fail

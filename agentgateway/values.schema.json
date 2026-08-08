@@ -1,0 +1,51 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "agentgateway edge",
+  "description": "Installs the upstream agentgateway controller and renders the platform GatewayClass + Gateway.",
+  "additionalProperties": false,
+  "required": ["gatewayClassName", "controllerName", "gateway"],
+  "properties": {
+    "gatewayClassName": {
+      "type": "string",
+      "title": "GatewayClass name",
+      "description": "Name of the GatewayClass this edge creates; also written to the agentgateway: passthrough (they must match)."
+    },
+    "controllerName": {
+      "type": "string",
+      "title": "Controller name",
+      "description": "Written to GatewayClass.spec.controllerName AND the controller's AGW_CONTROLLER_NAME; the two must be equal."
+    },
+    "gateway": {
+      "type": "object",
+      "title": "Gateway",
+      "additionalProperties": false,
+      "required": ["name", "listeners"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "title": "Gateway name",
+          "description": "Must match the installer's exposure.gatewayRef.name and cert-manager-issuers' acme.gatewayRef.name."
+        },
+        "listeners": {
+          "type": "array",
+          "title": "Gateway listeners",
+          "description": "Passed through verbatim to the Gateway spec.listeners (Gateway API v1). At least an HTTP :80 listener is needed for ACME HTTP-01 and HTTPRoute attachment.",
+          "items": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    "agentgateway": {
+      "type": "object",
+      "title": "Upstream chart values",
+      "description": "Passthrough to the upstream agentgateway controller chart; set by this blueprint's values.yaml (keep controllerName/gatewayClassName in sync with the top-level)."
+    },
+    "global": {
+      "type": "object",
+      "title": "Global values",
+      "description": "Helm global values (injected when this chart is used as a subchart)."
+    }
+  }
+}

@@ -1,9 +1,10 @@
 apiVersion: v2
 name: cert-manager-issuers
 description: >-
-  Krateo blueprint for cert-manager plus the platform's ClusterIssuers. Installs
-  the upstream chart and renders an internal self-signed CA chain and, optionally,
-  a public ACME issuer solving HTTP-01 through the Gateway API edge.
+  Krateo blueprint for the platform's cert-manager ClusterIssuers: an internal
+  self-signed CA chain and, optionally, a public ACME issuer solving HTTP-01 through
+  the Gateway API edge. Requires cert-manager to be installed first (the cert-manager
+  blueprint); it deliberately does NOT install it.
 type: application
 version: CHART_VERSION
 appVersion: "v1.21.1"
@@ -11,8 +12,3 @@ home: https://krateo.io
 keywords: [krateo, platformops, tls, cert-manager]
 sources:
   - https://github.com/cert-manager/cert-manager
-dependencies:
-  - name: cert-manager
-    version: "v1.21.1"
-    repository: https://charts.jetstack.io
-    condition: cert-manager.installCRDs

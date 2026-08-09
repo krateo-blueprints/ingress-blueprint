@@ -4,7 +4,11 @@
   "title": "agentgateway edge",
   "description": "Installs the upstream agentgateway controller and renders the platform GatewayClass + Gateway.",
   "additionalProperties": false,
-  "required": ["gatewayClassName", "controllerName", "gateway"],
+  "required": [
+    "gatewayClassName",
+    "controllerName",
+    "gateway"
+  ],
   "properties": {
     "gatewayClassName": {
       "type": "string",
@@ -20,7 +24,10 @@
       "type": "object",
       "title": "Gateway",
       "additionalProperties": false,
-      "required": ["name", "listeners"],
+      "required": [
+        "name",
+        "listeners"
+      ],
       "properties": {
         "name": {
           "type": "string",
@@ -46,6 +53,12 @@
       "type": "object",
       "title": "Global values",
       "description": "Helm global values (injected when this chart is used as a subchart)."
+    },
+    "agentgateway-crds": {
+      "type": "object",
+      "title": "Upstream CRDs chart values",
+      "description": "Passthrough to the upstream agentgateway-crds chart. Declared because Helm coalesces a values key named after every subchart, and this schema is additionalProperties:false. Not intended for direct use.",
+      "x-kubernetes-preserve-unknown-fields": true
     }
   }
 }

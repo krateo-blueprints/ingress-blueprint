@@ -1,5 +1,16 @@
-# Internal self-signed CA chain. Always rendered: the platform needs a trust
-# anchor before any public certificate exists.
+# The platform's ClusterIssuers only. cert-manager itself is NOT installed here —
+# it comes from the `cert-manager` blueprint, which this component depends on.
+#
+# Why the split: Helm applies a release's manifests in one pass, so cert-manager.io
+# CRDs delivered by a subchart are not established when the parent's Issuer
+# templates are applied. Bundling both failed on first install with
+#   no matches for kind "ClusterIssuer" in version "cert-manager.io/v1"
+#   ensure CRDs are installed first
+# Ordering between two components is something the installer already models; a race
+# inside one release is not.
+
+# Internal self-signed CA chain. Always rendered: the platform needs a trust anchor
+# before any public certificate exists.
 internalCA:
   enabled: true
   name: krateo-selfsigned-ca
@@ -10,13 +21,9 @@ acme:
   enabled: false
   email: ""
   server: https://acme-v02.api.letsencrypt.org/directory
-  # Gateway that serves the HTTP-01 challenge (Gateway API, not Ingress).
+  # Gateway that serves the HTTP-01 challenge (Gateway API, not Ingress). Must match
+  # the agentgateway blueprint's gateway.name and the installer's
+  # exposure.gatewayRef.name.
   gatewayRef:
-    name: krateo-edge
+    name: krateo-gateway
     namespace: krateo-system
-
-# Passthrough to the upstream cert-manager chart.
-cert-manager:
-  installCRDs: true
-  crds:
-    enabled: true

@@ -1,0 +1,17 @@
+apiVersion: v2
+name: cert-manager
+description: >-
+  Krateo blueprint that installs upstream cert-manager (operator + CRDs). Ships no
+  Issuers or Certificates of its own — those live in the cert-manager-issuers
+  blueprint, which depends on this one.
+type: application
+version: CHART_VERSION
+appVersion: "v1.21.1"
+home: https://krateo.io
+keywords: [krateo, platformops, tls, cert-manager]
+sources:
+  - https://github.com/cert-manager/cert-manager
+dependencies:
+  - name: cert-manager
+    version: "v1.21.1"
+    repository: https://charts.jetstack.io

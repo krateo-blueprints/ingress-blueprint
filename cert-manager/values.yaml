@@ -1,0 +1,20 @@
+# Installs upstream cert-manager and nothing else.
+#
+# This chart exists because a single chart CANNOT install cert-manager and also
+# create ClusterIssuers/Certificates: Helm applies a release's manifests in one
+# pass, so cert-manager.io CRDs delivered by the subchart are not established when
+# the parent's Issuer templates are applied. The install fails with:
+#
+#   no matches for kind "ClusterIssuer" in version "cert-manager.io/v1"
+#   ensure CRDs are installed first
+#
+# Splitting the operator from the Issuers makes the ordering a dependency between
+# two components, which the installer already models, instead of a race inside one
+# release.
+
+cert-manager:
+  # Install the CRDs with the operator. This is the whole point of this component:
+  # the cert-manager-issuers blueprint depends on it precisely so that
+  # cert-manager.io/v1 is served before any Issuer or Certificate is applied.
+  crds:
+    enabled: true

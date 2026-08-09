@@ -17,6 +17,15 @@ keywords:
 sources:
   - https://github.com/agentgateway/agentgateway
 dependencies:
+  # The CRDs the controller watches (AgentgatewayPolicy, AgentgatewayBackend) ship in a
+  # SEPARATE upstream chart. Without them the controller starts, finds no such CRDs and
+  # blocks forever on "waiting for sync... failed to list *agentgateway.AgentgatewayPolicy",
+  # never becoming Ready — so the Gateway is never programmed and never gets an address.
+  # Nothing reports an error; the edge silently has no data plane. Listed first so Helm
+  # applies it before the controller.
+  - name: agentgateway-crds
+    version: "1.4.1"
+    repository: oci://ghcr.io/agentgateway/charts
   - name: agentgateway
     version: "1.4.1"
     repository: oci://ghcr.io/agentgateway/charts

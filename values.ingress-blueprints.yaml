@@ -95,15 +95,24 @@ componentValues:
         name: krateo-gateway
         namespace: krateo-system
 
+  # Nested under `external-dns` because Helm cannot compute subchart values at render
+  # time — a curated top-level surface is accepted by the CRD and then never reaches the
+  # workload. That was the 0.2.0 bug; see the repo README.
   external-dns:
-    provider: cloudflare
-    policy: upsert-only    # `sync` also DELETES records when their source object goes away
-    domainFilters:
-      - krateo.dev
-    sources:
-      - gateway-httproute  # required for the agentgateway edge
-      - service
-    txtOwnerId: ""         # REQUIRED, and must be unique per cluster sharing the zone
-    credentialsSecretRef:
-      name: cloudflare-api-token
-      key: api-token
+    external-dns:
+      provider:
+        name: cloudflare
+      policy: upsert-only    # `sync` also DELETES records when their source object goes away
+      domainFilters:
+        - krateo.dev
+      sources:
+        - gateway-httproute  # required for the agentgateway edge
+        - service
+      txtOwnerId: ""         # REQUIRED, and must be unique per cluster sharing the zone
+      # The Secret is placed out-of-band; only the reference lives here.
+      env:
+        - name: CF_API_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: cloudflare-api-token
+              key: api-token

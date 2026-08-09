@@ -1,5 +1,14 @@
 # CI-only render inputs for external-dns's fail-on-missing-required guards (not packaged;
 # outside the chart dir). Real values come from componentValues at install time.
-txtOwnerId: ci
-credentialsSecretRef:
-  name: ci-secret
+#
+# Everything lives under the `external-dns` key: Helm cannot compute subchart values at
+# render time, so a curated top-level surface would never reach the workload (see the
+# repo README, "Where a curated surface can and cannot go").
+external-dns:
+  txtOwnerId: ci
+  env:
+    - name: CF_API_TOKEN
+      valueFrom:
+        secretKeyRef:
+          name: ci-secret
+          key: api-token

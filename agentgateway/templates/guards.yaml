@@ -15,3 +15,24 @@ and minLength cannot be used because the chart's own defaults must satisfy its s
 {{- if not .Values.controllerName }}
 {{- fail "agentgateway: controllerName is required and must match the agentgateway controller's AGW_CONTROLLER_NAME (the agentgateway: passthrough)." }}
 {{- end }}
+
+{{/*
+controllerName and gatewayClassName are consumed twice: by this chart's own GatewayClass
+and Gateway, and by the upstream controller under the `agentgateway:` passthrough. Helm
+cannot compute subchart values at render time, so the passthrough is a static duplicate of
+the top-level values and a comment asks the reader to keep them in sync.
+
+A comment is not a guarantee. Overriding only the top-level value — which is what the
+generated CRD invites, since the passthrough is not part of the curated surface — produces
+a GatewayClass claiming one controller name while the controller watches another. Nothing
+errors: the Gateway is simply never programmed, and the edge silently has no data plane.
+That is the same class of failure as external-dns 0.2.0, so it is checked rather than
+documented.
+*/}}
+{{- $agw := index .Values "agentgateway" | default dict }}
+{{- if and $agw.controllerName (ne .Values.controllerName $agw.controllerName) }}
+{{- fail (printf "agentgateway: controllerName mismatch — GatewayClass would advertise %q while the controller watches %q. Set agentgateway.controllerName to the same value (they are separate because Helm cannot compute subchart values at render time)." .Values.controllerName $agw.controllerName) }}
+{{- end }}
+{{- if and $agw.gatewayClassName (ne .Values.gatewayClassName $agw.gatewayClassName) }}
+{{- fail (printf "agentgateway: gatewayClassName mismatch — this chart creates GatewayClass %q while the controller manages %q. Set agentgateway.gatewayClassName to the same value." .Values.gatewayClassName $agw.gatewayClassName) }}
+{{- end }}

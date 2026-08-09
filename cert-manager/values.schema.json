@@ -1,0 +1,20 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "cert-manager",
+  "description": "Installs upstream cert-manager (operator and CRDs). Issuers and Certificates live in the cert-manager-issuers blueprint, which depends on this one.",
+  "additionalProperties": false,
+  "properties": {
+    "global": {
+      "type": "object",
+      "title": "Global values",
+      "description": "Helm global values (injected when this chart is used as a subchart)."
+    },
+    "cert-manager": {
+      "type": "object",
+      "title": "Upstream chart values",
+      "description": "Passthrough to the upstream cert-manager chart. Helm requires subchart values to live under a key named after the subchart and cannot compute them at render time, so a curated surface at this chart's top level would be silently ignored.",
+      "x-kubernetes-preserve-unknown-fields": true
+    }
+  }
+}

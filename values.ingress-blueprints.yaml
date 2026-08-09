@@ -8,8 +8,9 @@
 # Gated behind `features.ingress` so a cluster that fronts Krateo some other way
 # (an existing ingress controller, a cloud LB, a service mesh) is unaffected.
 #
-# ORDER (dep-chained below): gateway-api-crds -> agentgateway -> cert-manager-issuers /
-# external-dns. The CRDs must be served before the Gateway; the Gateway must exist before
+# ORDER (dep-chained below): gateway-api-crds -> agentgateway -> cert-manager ->
+# cert-manager-issuers / external-dns. The CRDs must be served before the Gateway; the
+# Gateway must exist before
 # the ACME gatewayRef and the installer's per-component HTTPRoutes (exposure.type=Gateway)
 # attach to it. `gateway.name` here must equal exposure.gatewayRef.name and acme.gatewayRef.name.
 #
@@ -32,7 +33,7 @@ components:
   - name: gateway-api-crds
     kind: GatewayAPICrds
     chart: gateway-api-crds
-    version: "0.1.0"
+    version: "0.4.0"
     tier: platform
     feature: ingress
 
@@ -40,26 +41,45 @@ components:
   - name: agentgateway
     kind: Agentgateway
     chart: agentgateway
-    version: "0.1.0"
+    version: "0.4.0"
     tier: platform
     feature: ingress
     deps:
       - gateway-api-crds
 
-  # 3. cert-manager: its ACME issuer solves HTTP-01 through the Gateway, so the Gateway first.
-  - name: cert-manager-issuers
-    kind: CertManagerIssuers
-    chart: cert-manager-issuers
-    version: "0.1.0"
+  # 3. cert-manager, the operator, as its OWN component.
+  #
+  # It is separate from the Issuers below because a single chart CANNOT do both: Helm
+  # applies a release's manifests in one pass, so cert-manager.io CRDs delivered by a
+  # subchart are not established when the same release's ClusterIssuer templates are
+  # applied. Bundling them failed on first install with
+  #   no matches for kind "ClusterIssuer" in version "cert-manager.io/v1"
+  # Ordering across two components is something the installer already models; a race
+  # inside one release is not.
+  - name: cert-manager
+    kind: CertManager
+    chart: cert-manager
+    version: "0.4.0"
     tier: platform
     feature: ingress
     deps:
       - agentgateway
 
+  # 4. The platform ClusterIssuers. Needs cert-manager.io served (cert-manager) and,
+  # for the ACME HTTP-01 solver, the Gateway to exist (agentgateway).
+  - name: cert-manager-issuers
+    kind: CertManagerIssuers
+    chart: cert-manager-issuers
+    version: "0.4.0"
+    tier: platform
+    feature: ingress
+    deps:
+      - cert-manager
+
   - name: external-dns
     kind: ExternalDNS
     chart: external-dns
-    version: "0.1.0"
+    version: "0.4.0"
     tier: platform
     feature: ingress
     deps:

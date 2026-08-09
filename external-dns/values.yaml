@@ -1,32 +1,49 @@
-# Krateo-facing surface. Everything not listed here stays at upstream defaults.
-provider: cloudflare
-# Zones this instance is allowed to manage. Leave empty to manage every zone the
-# credential can reach —strongly discouraged on a shared account.
-domainFilters: []
-# sync = create AND delete records to match cluster state (records disappear when
-# the Service/Gateway does). upsert-only = never delete. See the blueprint README:
-# `sync` is what removes stale records, and also what removes them on teardown.
-policy: upsert-only
-# Reference to the provider API token. The Secret is NOT part of this blueprint —
-# place it out-of-band and reference it here (same shape as KeycloakUser's secretRef).
-credentialsSecretRef:
-  name: ""
-  key: "api-token"
-# Sources to watch. gateway-httproute is required for the agentgateway edge.
-sources:
-  - gateway-httproute
-  - service
-# Owner TXT-record identifier. MUST be unique per cluster sharing a zone, or two
-# clusters will fight over the same records.
-txtOwnerId: ""
+# Every setting lives under the `external-dns` key.
+#
+# This is not a stylistic choice. Helm requires a subchart's values to sit under a
+# key named after that subchart, and a parent chart cannot compute them at render
+# time — there is no template, no import-values (child->parent only) and no global:
+# route that will carry a curated top-level field into the subchart. A blueprint
+# that exposes its own names on top of an upstream chart therefore generates a CRD
+# full of fields that are accepted, validated, stored on the CR, and then silently
+# ignored by the workload. That is exactly what 0.2.0 did: provider, policy and
+# sources worked (they were set statically here) while domainFilters, txtOwnerId
+# and credentialsSecretRef were inert, and external-dns crash-looped on a missing
+# CF_API_TOKEN while the composition reported Ready.
+#
+# So the schema describes the upstream chart's own value names, one level down.
+# The names are less pretty; they take effect.
 
-# ---------------------------------------------------------------------------
-# Passthrough to the upstream chart. Helm requires subchart values to live under
-# a key named after the subchart, and cannot compute them at render time — so the
-# mapping is static here rather than templated.
-# ---------------------------------------------------------------------------
 external-dns:
   provider:
     name: cloudflare
-  sources: [gateway-httproute, service]
+
+  # Zones this instance may manage. Required — an empty list lets external-dns
+  # modify every zone the credential can reach.
+  domainFilters: []
+
+  # sync = create AND delete records to match cluster state (records disappear
+  # when their Service/Gateway does, including on teardown). upsert-only = never
+  # delete. See the README: `sync` is what removes stale records, and also what
+  # removed the demo's records when its cluster was rebuilt.
   policy: upsert-only
+
+  # gateway-httproute is required for the agentgateway edge.
+  sources:
+    - gateway-httproute
+    - service
+
+  # Written into ownership TXT records. MUST be unique per cluster sharing a zone,
+  # or two clusters will overwrite each other's records. Required.
+  txtOwnerId: ""
+
+  # The provider credential, read from a Secret placed out-of-band. Required.
+  # Cloudflare expects CF_API_TOKEN; other providers use different names.
+  #
+  #   env:
+  #     - name: CF_API_TOKEN
+  #       valueFrom:
+  #         secretKeyRef:
+  #           name: cloudflare-api-token
+  #           key: api-token
+  env: []

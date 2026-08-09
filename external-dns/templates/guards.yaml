@@ -1,16 +1,34 @@
 {{/*
 Render-time guards. The schema marks these `required` (so they are required fields
-on the generated CRD), but `required` only checks presence — an empty string passes.
-minLength cannot be used, because the chart's own defaults must satisfy its schema
-for `helm lint` to pass. So emptiness is caught here, the same way
-cert-manager-issuers guards acme.email.
+on the generated CRD), but `required` only checks presence — an empty string or an
+empty list passes. minLength/minItems cannot be used, because the chart's own
+defaults must satisfy its schema for `helm lint` to pass. So emptiness is caught
+here, the same way cert-manager-issuers guards acme.email.
+
+Everything lives under the `external-dns` key (see values.yaml for why), which has
+a dash in it, so it is reached with `index` rather than a field selector.
 */}}
-{{- if not .Values.txtOwnerId }}
-{{- fail "external-dns: txtOwnerId is required. Two clusters sharing a DNS zone without distinct owner IDs will overwrite each other's records." }}
+{{- $ed := index .Values "external-dns" }}
+
+{{- if not $ed.txtOwnerId }}
+{{- fail "external-dns: external-dns.txtOwnerId is required. Two clusters sharing a DNS zone without distinct owner IDs will overwrite each other's records." }}
 {{- end }}
-{{- if not .Values.credentialsSecretRef.name }}
-{{- fail "external-dns: credentialsSecretRef.name is required — the provider API token Secret must be placed out-of-band and referenced here." }}
+
+{{/*
+0.2.0 shipped a credential field that the workload never received: external-dns
+started with no CF_API_TOKEN and crash-looped while the composition reported Ready.
+Failing the render is the louder failure, and the one that names the cause.
+*/}}
+{{- if not $ed.env }}
+{{- fail "external-dns: external-dns.env is required — the provider API token must be supplied as an environment variable sourced from a Secret placed out-of-band (Cloudflare: CF_API_TOKEN)." }}
 {{- end }}
-{{- if and (eq .Values.policy "sync") (not .Values.domainFilters) }}
+
+{{- range $ed.env }}
+{{- if not (or .value .valueFrom) }}
+{{- fail (printf "external-dns: env entry %q has neither value nor valueFrom." .name) }}
+{{- end }}
+{{- end }}
+
+{{- if and (eq ($ed.policy | default "upsert-only") "sync") (not $ed.domainFilters) }}
 {{- fail "external-dns: policy=sync with empty domainFilters lets this instance DELETE records in every zone the credential can reach. Set domainFilters, or use policy=upsert-only." }}
 {{- end }}

@@ -69,6 +69,14 @@
               }
             }
           }
+        },
+        "annotations": {
+          "type": "object",
+          "title": "Gateway annotations",
+          "description": "Optional annotations on the Gateway. Set cert-manager.io/cluster-issuer here to have cert-manager's gateway-shim issue a Certificate for every listener declaring tls.certificateRefs.",
+          "additionalProperties": {
+            "type": "string"
+          }
         }
       }
     },

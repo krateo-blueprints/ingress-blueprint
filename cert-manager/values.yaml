@@ -18,3 +18,20 @@ cert-manager:
   # cert-manager.io/v1 is served before any Issuer or Certificate is applied.
   crds:
     enabled: true
+
+  # Gateway API support, OFF in upstream's defaults.
+  #
+  # Without it cert-manager never starts its gateway-shim, so a Gateway annotated
+  # with cert-manager.io/cluster-issuer is simply ignored: no Certificate is created,
+  # the HTTPS listeners stay ResolvedRefs=False for a Secret that never appears, and
+  # nothing anywhere reports an error. The edge serves HTTP and silently never serves
+  # HTTPS.
+  #
+  # This blueprint exists to back a Gateway API edge, so shipping a cert-manager that
+  # cannot issue for Gateways would defeat its purpose. (ExperimentalGatewayAPISupport
+  # already defaults to true; it is this switch that is off.)
+  config:
+    apiVersion: controller.config.cert-manager.io/v1alpha1
+    kind: ControllerConfiguration
+    gatewayAPI:
+      enabled: true

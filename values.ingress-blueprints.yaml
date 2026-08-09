@@ -30,7 +30,7 @@ features:
 components:
   # 1. Gateway API CRDs first — shared infra the Gateway, HTTPRoutes and ACME gatewayRef need.
   - name: gateway-api-crds
-    kind: GatewayApiCrds
+    kind: GatewayAPICrds
     chart: gateway-api-crds
     version: "0.1.0"
     tier: platform
@@ -57,7 +57,7 @@ components:
       - agentgateway
 
   - name: external-dns
-    kind: ExternalDns
+    kind: ExternalDNS
     chart: external-dns
     version: "0.1.0"
     tier: platform

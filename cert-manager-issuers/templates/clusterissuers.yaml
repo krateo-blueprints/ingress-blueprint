@@ -19,7 +19,15 @@ apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: krateo-root-ca
-  namespace: cert-manager
+  {{/*
+    The CA Certificate must live in cert-manager's "cluster resource namespace",
+    which defaults to the namespace cert-manager itself runs in — NOT a namespace
+    literally called cert-manager. When cert-manager is a Krateo composition it
+    renders into the composition's namespace, so hardcoding `cert-manager` both
+    fails RBAC generation ("namespaces \"cert-manager\" not found") and would put
+    the CA secret somewhere the ca ClusterIssuer cannot read it.
+  */}}
+  namespace: {{ .Release.Namespace }}
 spec:
   isCA: true
   commonName: krateo-root-ca

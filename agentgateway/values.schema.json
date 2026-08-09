@@ -41,6 +41,34 @@
           "items": {
             "type": "object"
           }
+        },
+        "addresses": {
+          "type": "array",
+          "title": "Pinned addresses",
+          "description": "Optional. Pin the Gateway to pre-reserved address(es) instead of letting the cloud assign an ephemeral one. Leave unset for ephemeral. A reserved address survives a cluster rebuild; an ephemeral one does not, and published DNS records then point at nothing.",
+          "items": {
+            "type": "object",
+            "required": [
+              "value"
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "title": "Address type",
+                "enum": [
+                  "IPAddress",
+                  "Hostname",
+                  "NamedAddress"
+                ],
+                "default": "IPAddress"
+              },
+              "value": {
+                "type": "string",
+                "title": "Address",
+                "description": "The reserved IP or hostname, e.g. 34.154.210.215."
+              }
+            }
+          }
         }
       }
     },

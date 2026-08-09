@@ -19,5 +19,15 @@ metadata:
   namespace: {{ .Release.Namespace }}
 spec:
   gatewayClassName: {{ .Values.gatewayClassName }}
+  {{- with .Values.gateway.addresses }}
+  {{/*
+    Pin the Gateway to a pre-reserved address. Omitted entirely when unset, so the
+    cloud assigns an ephemeral one — which is fine until the cluster is rebuilt, at
+    which point the address changes and every published DNS record points at
+    nothing. A reserved address survives teardown; this is how it gets reattached.
+  */}}
+  addresses:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   listeners:
     {{- toYaml .Values.gateway.listeners | nindent 4 }}

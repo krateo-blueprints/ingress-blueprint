@@ -12,6 +12,13 @@ controllerName: agentgateway.dev/agentgateway
 # exposure.gatewayRef.name and cert-manager-issuers' acme.gatewayRef.name (default krateo-gateway).
 gateway:
   name: krateo-gateway
+  # Optional: pin the Gateway to a pre-reserved address. Unset means the cloud assigns
+  # an ephemeral one, which it reassigns on every cluster rebuild — silently
+  # invalidating every DNS record already published for the old address. A reserved
+  # address survives teardown; this is how it gets reattached. Example:
+  #   addresses:
+  #     - type: IPAddress
+  #       value: 34.154.210.215
   # Listeners passed through verbatim to the Gateway spec. The default is a single HTTP :80
   # listener, which serves ACME HTTP-01 challenges (cert-manager's gatewayHTTPRoute solver) and
   # HTTP-facing HTTPRoutes. For production add an HTTPS :443 listener with a cert-manager-issued

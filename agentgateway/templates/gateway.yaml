@@ -17,6 +17,18 @@ kind: Gateway
 metadata:
   name: {{ .Values.gateway.name }}
   namespace: {{ .Release.Namespace }}
+  {{- with .Values.gateway.annotations }}
+  {{/*
+    Annotations on the Gateway. The reason this exists: cert-manager's gateway-shim
+    watches Gateways carrying `cert-manager.io/cluster-issuer` (or `issuer`) and
+    creates a Certificate for each listener that declares tls.certificateRefs. That
+    is the idiomatic Gateway API + cert-manager path — without it a Certificate has
+    to be applied out-of-band, which puts TLS outside the composition that owns the
+    Gateway.
+  */}}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 spec:
   gatewayClassName: {{ .Values.gatewayClassName }}
   {{- with .Values.gateway.addresses }}

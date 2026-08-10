@@ -27,3 +27,24 @@ acme:
   gatewayRef:
     name: krateo-gateway
     namespace: krateo-system
+
+# A SECOND ACME issuer that solves DNS-01. Off by default.
+#
+# Not a duplicate of `acme` above. HTTP-01 proves control of a hostname by serving a
+# challenge on it, so it CANNOT issue wildcard certificates — Let's Encrypt requires
+# DNS-01 for those. Anything needing *.<something> (per-tenant child hostnames, for
+# example) needs this issuer.
+#
+# The cost is a credential: DNS-01 writes a TXT record, so cert-manager needs an API
+# token for the zone. It is placed out-of-band and only referenced here — the same
+# Secret external-dns already consumes can be reused.
+acmeDns01:
+  enabled: false
+  name: krateo-acme-dns01
+  email: ""
+  server: https://acme-v02.api.letsencrypt.org/directory
+  cloudflare:
+    apiTokenSecretRef:
+      # Must live in the namespace cert-manager runs in (its cluster resource namespace).
+      name: cloudflare-api-token
+      key: api-token

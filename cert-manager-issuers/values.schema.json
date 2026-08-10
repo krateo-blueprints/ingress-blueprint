@@ -75,6 +75,59 @@
           }
         }
       }
+    },
+    "acmeDns01": {
+      "type": "object",
+      "title": "ACME issuer (DNS-01)",
+      "description": "A second ACME ClusterIssuer solving DNS-01. Required for wildcard certificates, which HTTP-01 cannot issue. Off by default because it needs a DNS provider API token.",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "title": "Enabled",
+          "default": false
+        },
+        "name": {
+          "type": "string",
+          "title": "ClusterIssuer name",
+          "default": "krateo-acme-dns01"
+        },
+        "email": {
+          "type": "string",
+          "title": "ACME account email",
+          "description": "Required when enabled. Let's Encrypt uses it for expiry warnings."
+        },
+        "server": {
+          "type": "string",
+          "title": "ACME server",
+          "default": "https://acme-v02.api.letsencrypt.org/directory"
+        },
+        "cloudflare": {
+          "type": "object",
+          "title": "Cloudflare",
+          "properties": {
+            "apiTokenSecretRef": {
+              "type": "object",
+              "title": "API token reference",
+              "description": "Reference to a Secret holding the Cloudflare API token. Placed out-of-band; never part of this blueprint.",
+              "required": [
+                "name",
+                "key"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "title": "Secret name"
+                },
+                "key": {
+                  "type": "string",
+                  "title": "Secret key",
+                  "default": "api-token"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   }
 }

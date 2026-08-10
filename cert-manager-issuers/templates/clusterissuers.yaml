@@ -77,3 +77,42 @@ spec:
                 namespace: {{ .Values.acme.gatewayRef.namespace }}
                 kind: Gateway
 {{- end }}
+
+{{- if .Values.acmeDns01.enabled }}
+{{- if not .Values.acmeDns01.email }}
+{{- fail "cert-manager-issuers: acmeDns01.enabled is true but acmeDns01.email is empty. ACME registration requires an account email." }}
+{{- end }}
+{{- if not .Values.acmeDns01.cloudflare.apiTokenSecretRef.name }}
+{{- fail "cert-manager-issuers: acmeDns01 requires cloudflare.apiTokenSecretRef.name — the API token Secret is placed out-of-band and only referenced here." }}
+{{- end }}
+---
+{{/*
+  A SECOND ACME issuer, solving DNS-01 instead of HTTP-01.
+
+  This is not a duplicate of krateo-acme. HTTP-01 proves control of one hostname by
+  serving a challenge on it, so it CANNOT issue a wildcard certificate — Let's Encrypt
+  requires DNS-01 for those. Any consumer needing *.<something> (per-tenant child
+  hostnames, for instance) needs this issuer, not the HTTP-01 one.
+
+  The trade-off is a credential: DNS-01 writes a TXT record, so cert-manager needs an
+  API token for the zone. The token is placed out-of-band and referenced here — it is
+  never part of this blueprint's values, and the same Secret external-dns already uses
+  can be reused.
+*/}}
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: {{ .Values.acmeDns01.name }}
+spec:
+  acme:
+    server: {{ .Values.acmeDns01.server | quote }}
+    email: {{ .Values.acmeDns01.email | quote }}
+    privateKeySecretRef:
+      name: {{ .Values.acmeDns01.name }}-account-key
+    solvers:
+      - dns01:
+          cloudflare:
+            apiTokenSecretRef:
+              name: {{ .Values.acmeDns01.cloudflare.apiTokenSecretRef.name }}
+              key: {{ .Values.acmeDns01.cloudflare.apiTokenSecretRef.key }}
+{{- end }}

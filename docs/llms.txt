@@ -1,0 +1,24 @@
+# ingress-blueprint
+
+Krateo blueprint bundle for the platform edge: the Gateway (agentgateway), the Gateway API
+CRDs, cert-manager and its ClusterIssuers, and ExternalDNS. Each directory with a Chart.yaml
+is a Helm chart plus a values.schema.json that core-provider turns into a CompositionDefinition.
+Enabling features.ingress on the Installer stands up the whole edge from one Installer CR.
+
+## Charts
+- gateway-api-crds: upstream Gateway API standard CRDs (v1.3.0), no tunable values.
+- agentgateway: upstream agentgateway controller + platform GatewayClass and Gateway.
+- cert-manager: upstream cert-manager operator + CRDs, Gateway API support on.
+- cert-manager-issuers: platform ClusterIssuers (internal CA, ACME HTTP-01, ACME DNS-01).
+- external-dns: upstream ExternalDNS publishing HTTPRoute and Service records.
+
+## Docs
+docs/index.md: Entry point and the five charts at a glance.
+docs/overview.md: Architecture, install ordering, and the curated-surface constraints.
+docs/usage.md: Enabling features.ingress and driving the edge from the Installer.
+docs/configuration.md: The curated value surface, per chart.
+docs/api.md: The generated CRD contract, derived from each values.schema.json.
+docs/examples.md: Index of runnable examples.
+docs/release.md: The tag to OCI publish flow.
+docs/log.md: Documentation changelog.
+examples/basic/README.md: A minimal internal-CA edge on an HTTP :80 Gateway.

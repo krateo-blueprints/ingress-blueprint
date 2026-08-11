@@ -3,139 +3,88 @@
 Krateo blueprints for the edge-support layer: the **Gateway** itself, **DNS publication**
 and **certificate issuance**. These are things the CMP demo needed on every cluster, were
 installed by hand, and were not recoverable when a cluster was rebuilt — which is the reason
-they exist here as blueprints rather than as runbook steps. Per the platform principle that
+they exist here as blueprints rather than as runbook steps.
+
+## What is this
+
+A bundle of Krateo blueprints — each a Helm chart plus a `values.schema.json` that
+core-provider turns into a `CompositionDefinition`. Per the platform principle that
 **everything is a blueprint, even an external tool**, the Gateway (agentgateway) and the
-Gateway API CRDs are blueprints too — so `exposure.type: Gateway` + `features.ingress` stands
+Gateway API CRDs are blueprints too, so `exposure.type: Gateway` + `features.ingress` stands
 up the whole edge from one Installer CR, with no BYO step.
 
 | blueprint | what it installs |
 |---|---|
-| `gateway-api-crds` | The upstream Kubernetes Gateway API **standard CRDs** (`GatewayClass`, `Gateway`, `HTTPRoute`, `ReferenceGrant`, `GRPCRoute`), bundle-version v1.3.0. Shared edge infra everything below (and the installer's `HTTPRoute`s) requires. |
-| `agentgateway` | Upstream **agentgateway** controller plus the platform `GatewayClass` + `Gateway` that per-component `HTTPRoute`s, external-dns and cert-manager's ACME `gatewayRef` all attach to. |
-| `external-dns` | Upstream ExternalDNS, publishing records for Gateway API `HTTPRoute`s and `Service`s to an external provider. |
-| `cert-manager-issuers` | Upstream cert-manager plus the platform's ClusterIssuers: an internal self-signed CA chain, and optionally a public ACME issuer solving HTTP-01 through the Gateway API edge. |
+| `gateway-api-crds` | The upstream Kubernetes Gateway API **standard CRDs** (`GatewayClass`, `Gateway`, `HTTPRoute`, `ReferenceGrant`, `GRPCRoute`), bundle-version v1.3.0. |
+| `agentgateway` | Upstream **agentgateway** controller plus the platform `GatewayClass` + `Gateway`. |
+| `cert-manager` | Upstream **cert-manager** operator + CRDs, with Gateway API support on. |
+| `cert-manager-issuers` | The platform's **ClusterIssuers**: an internal self-signed CA chain and optional public ACME issuers. |
+| `external-dns` | Upstream **ExternalDNS**, publishing records for Gateway API `HTTPRoute`s and `Service`s. |
 
-**Install order** (dep-chained in the registration below): `gateway-api-crds` →
-`agentgateway` → `cert-manager-issuers` / `external-dns`. The CRDs must be served before the
-Gateway; the Gateway must exist before the ACME `gatewayRef` and the `HTTPRoute`s attach to it.
+A blueprint is a Helm chart plus a `values.schema.json`. The schema *is* the API — every key
+it exposes becomes a field in the generated CRD and in the portal's form. Each chart wrapping
+an upstream project declares it as a Helm **dependency** rather than vendoring its templates.
 
-## What a blueprint is here
+## Install
 
-A Helm chart plus a **`values.schema.json`**. core-provider reads the schema to
-generate a CRD and registers the chart as a `CompositionDefinition`; users then
-create Composition CRs of that generated Kind. The schema *is* the API — every key
-it exposes becomes a field in the generated CRD and in the portal's form.
+The blueprints register as installer components behind a `features.ingress` flag (default
+off), dependency-chained in this order:
 
-Both charts declare their upstream chart as a Helm **dependency** rather than
-vendoring its templates. That requires one non-obvious thing: Helm places a
-subchart's values under a top-level key named after the subchart, so a schema with
-`additionalProperties: false` will reject them unless that key is declared.
-
-### Where a curated surface can and cannot go
-
-This distinction is the whole design, and getting it wrong fails silently:
-
-- **`cert-manager-issuers` renders its own manifests.** `internalCA` and `acme`
-  are consumed by this repo's `clusterissuers.yaml`, so they can carry any names
-  we like. Only `cert-manager.installCRDs` reaches the subchart, and it is static.
-- **`external-dns` configures the subchart's workload.** Nothing in this repo
-  renders it, so every setting has to arrive as a subchart value — and Helm
-  **cannot compute subchart values at render time**. No template, no
-  `import-values` (child→parent only), no `global:` (subcharts read `.Values.x`,
-  not `.Values.global.x`). A curated name at the top level is simply never read.
-
-So `external-dns` puts everything under the `external-dns` key, using the upstream
-chart's own value names. Less pretty; it takes effect.
-
-**0.2.0 got this wrong.** It exposed `domainFilters`, `txtOwnerId` and
-`credentialsSecretRef` at the top level, generating a CRD that accepted, validated
-and stored all three — while the workload received none of them. external-dns
-started with `DomainFilter:[] TXTOwnerID:default` and crash-looped on a missing
-`CF_API_TOKEN`, and the composition still reported `Ready=True`. `helm lint`,
-`helm template` and CRD generation all passed. **Verify a curated field in the
-running pod, not in the CRD.** Fixed in 0.3.0, which is a breaking change to the
-CR shape.
-
-## Surface
-
-Deliberately small. Upstream's full values surface is not exposed: anything exposed
-becomes part of the generated CRD contract, and is harder to remove later than to
-add. Upstream defaults apply to everything not listed. `external-dns` does not set
-`additionalProperties: false` on its subchart key, so any other upstream value
-remains reachable as an escape hatch.
-
-**`external-dns`** — all under `external-dns`: `provider.name`, `domainFilters`,
-`policy`, `sources`, `txtOwnerId`, `env[]`
-
-**`cert-manager-issuers`** — `internalCA{enabled,name}`,
-`acme{enabled,email,server,gatewayRef}`
-
-**`agentgateway`** — `gatewayClassName`, `controllerName`, `gateway{name,listeners}`.
-`controllerName` is written to both the `GatewayClass` and the controller (they must match);
-`gateway.name` must equal the installer's `exposure.gatewayRef.name` and cert-manager's
-`acme.gatewayRef.name`. `gateway.listeners` passes through to the `Gateway` spec (default: an
-HTTP `:80` listener for ACME HTTP-01 + HTTPRoutes; add an HTTPS `:443` listener with a
-cert-manager cert for production).
-
-**`gateway-api-crds`** — none. Ships the upstream standard CRDs verbatim; upgrade by
-re-vendoring `files/standard-install.yaml` and bumping the chart appVersion.
-
-### Two settings that bite
-
-- **`policy: sync`** creates *and deletes* records to match cluster state. That is
-  usually what you want for drift correction, but it also means records disappear
-  when their Service or Gateway does — including during a cluster teardown. The
-  default here is `upsert-only`.
-- **`txtOwnerId`** must be unique per cluster when several clusters share a DNS
-  zone. Two clusters with the same owner ID will overwrite each other's records.
-  It is `required`, and a render-time guard rejects an empty value — `minLength`
-  cannot be used, because a chart's own defaults must satisfy its schema for
-  `helm lint` to pass.
-
-## Credentials
-
-The provider API token is **not** part of any blueprint. It is referenced from a
-Secret placed out-of-band, so no token appears in a blueprint's values, in a
-Composition CR, or in a rendered manifest.
-
-For `external-dns` the reference is the upstream `env` form — for the reason in
-"Where a curated surface can and cannot go", a friendlier `credentialsSecretRef`
-would never reach the workload:
-
-```yaml
-external-dns:
-  env:
-    - name: CF_API_TOKEN          # Cloudflare; other providers differ
-      valueFrom:
-        secretKeyRef:
-          name: cloudflare-api-token
-          key: api-token
+```
+gateway-api-crds → agentgateway → cert-manager → cert-manager-issuers / external-dns
 ```
 
-cert-manager needs a DNS credential only for a **DNS-01** solver, which is also
-what a wildcard certificate requires. An **HTTP-01** solver through the Gateway
-needs none.
+The CRDs must be served before the Gateway; the Gateway must exist before the ACME
+`gatewayRef` and the per-component `HTTPRoute`s attach to it. `values.ingress-blueprints.yaml`
+in this repo is the reference registration. See [docs/usage.md](docs/usage.md) for the full
+flow.
 
-## Registration
+## Configure
 
-`values.ingress-blueprints.yaml` registers both as installer components behind a
-`features.ingress` flag (default off), merged additively into the installer
-composition's `.spec.components` — the same pattern
-`krateo-acmp/assembly/installer-catalog` uses for the D25 auth blueprints.
+Each chart's surface is deliberately small — anything exposed becomes part of the generated
+CRD contract. The Gateway is referenced by name from three places that must all agree:
+`agentgateway`'s `gateway.name`, the installer's `exposure.gatewayRef.name`, and
+`cert-manager-issuers`' `acme.gatewayRef.name` (default `krateo-gateway`).
 
-## Release
+`external-dns` puts everything under the `external-dns` key using the upstream chart's own
+value names, because Helm cannot compute subchart values at render time — a curated top-level
+field would be accepted by the CRD and then silently ignored (the 0.2.0 bug). **Verify a
+curated field in the running pod, not in the CRD.** Provider API tokens are never part of a
+blueprint; they are referenced from a Secret placed out-of-band.
 
-Tag a semver (`0.1.0`); CI packages every directory containing a `Chart.yaml`,
-vendors its dependencies, and pushes to `oci://ghcr.io/<owner>/charts`.
+Full reference: [docs/configuration.md](docs/configuration.md) and
+[docs/api.md](docs/api.md).
 
-## Not included
+## Examples
 
-- **Kyverno tenant onboarding** — owned by the C2 workstream in `krateo-saas`.
+- [examples/basic](examples/basic/README.md) — a minimal edge: `features.ingress` on, an HTTP
+  `:80` Gateway, the internal self-signed CA, and ExternalDNS publishing `HTTPRoute` and
+  `Service` records.
 
-> **agentgateway is now included** (`agentgateway` + `gateway-api-crds` above). It was
-> previously deferred (D22b) and kept as a manual provisioner step; per the
-> everything-is-a-blueprint principle it is now a blueprint, so the edge no longer has a BYO
-> Gateway. The upstream agentgateway chart (`oci://ghcr.io/agentgateway/charts/agentgateway`)
-> is bundled as a dependency; the blueprint adds only the `GatewayClass` + `Gateway` it does
-> not ship. HBONE mTLS and the deeper controller surface stay at upstream defaults (not
-> exposed on the generated CRD) until there is a reason to curate them.
+Index: [docs/examples.md](docs/examples.md).
+
+## Docs
+
+The full documentation set lives under [docs/](docs/index.md):
+
+- [Overview](docs/overview.md) — architecture and design constraints.
+- [Usage](docs/usage.md) — enabling `features.ingress`.
+- [Configuration](docs/configuration.md) — the value surface, per chart.
+- [API](docs/api.md) — the generated CRD contract.
+- [Examples](docs/examples.md) — runnable examples.
+- [Release](docs/release.md) — the tag → OCI publish flow.
+- [Changelog](docs/log.md).
+
+## Develop & release
+
+Each `Chart.yaml` carries the literal placeholder `version: CHART_VERSION`; do not replace it
+in the repo. On a semver tag, `release-tag.yaml` discovers every chart (skipping vendored
+subcharts under `charts/`), stamps the tag into the placeholder, vendors dependencies,
+packages, and pushes each to:
+
+```
+oci://ghcr.io/krateo-blueprints/charts/<chart>:<tag>
+```
+
+Pull requests run `lint.yaml`, which renders and lints every chart and runs the authoritative
+`lint-docs` gate on the docs set. See [docs/release.md](docs/release.md) for the runbook.

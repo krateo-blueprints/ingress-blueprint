@@ -1,0 +1,50 @@
+# Minimal edge: HTTP :80 Gateway + internal self-signed CA + ExternalDNS.
+# Public ACME and DNS-01 stay off. See examples/basic/README.md.
+features:
+  ingress: true
+
+componentValues:
+  agentgateway:
+    gatewayClassName: agentgateway
+    controllerName: agentgateway.dev/agentgateway
+    gateway:
+      # Must match exposure.gatewayRef.name (installer) and acme.gatewayRef.name below.
+      name: krateo-gateway
+      listeners:
+        - name: http
+          protocol: HTTP
+          port: 80
+          allowedRoutes:
+            namespaces:
+              from: All
+
+  cert-manager-issuers:
+    internalCA:
+      enabled: true
+      name: krateo-selfsigned-ca
+    acme:
+      # Enable once public DNS resolves to the Gateway.
+      enabled: false
+      email: ""
+      gatewayRef:
+        name: krateo-gateway
+        namespace: krateo-system
+
+  external-dns:
+    # Nested under `external-dns` because Helm cannot compute subchart values at render time.
+    external-dns:
+      provider:
+        name: cloudflare
+      policy: upsert-only
+      domainFilters:
+        - krateo.dev
+      sources:
+        - gateway-httproute
+        - service
+      txtOwnerId: ""          # REQUIRED, unique per cluster sharing the zone.
+      env:
+        - name: CF_API_TOKEN  # Secret placed out-of-band; only the reference lives here.
+          valueFrom:
+            secretKeyRef:
+              name: cloudflare-api-token
+              key: api-token

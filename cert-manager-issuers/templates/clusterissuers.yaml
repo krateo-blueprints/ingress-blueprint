@@ -1,6 +1,6 @@
 {{/*
 Platform ClusterIssuers. Adapted from
-braghettos/krateo-acmp assembly/hardening/transit/cert-manager/clusterissuer.yaml,
+krateo-blueprints/krateo-acmp assembly/hardening/transit/cert-manager/clusterissuer.yaml,
 with the <ACME_ACCOUNT_EMAIL> placeholder replaced by a schema-validated value.
 
 Ordering note: the self-signed bootstrap issues the root CA Certificate, which in

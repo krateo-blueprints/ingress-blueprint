@@ -8,7 +8,7 @@ tags:
   - release
   - runbook
   - oci
-timestamp: 2026-08-11
+timestamp: 2026-08-11T00:00:00+00:00
 ---
 
 # Release runbook

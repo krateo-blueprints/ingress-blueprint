@@ -43,3 +43,19 @@ spec:
   {{- end }}
   listeners:
     {{- toYaml .Values.gateway.listeners | nindent 4 }}
+    {{- if .Values.llm.enabled }}
+    {{/* T1: the LLM endpoint's own listener + certificate. A SEPARATE tls secret, so the
+         gateway-shim issues it independently -- adding a hostname must never re-issue (and
+         transiently break) the portal's certificate. */}}
+    - name: https-llm
+      protocol: HTTPS
+      port: 443
+      hostname: {{ required "llm.hostname is required when llm.enabled" .Values.llm.hostname | quote }}
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: {{ .Values.llm.tls.secretName }}
+      allowedRoutes:
+        namespaces:
+          from: Same
+    {{- end }}

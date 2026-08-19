@@ -1,0 +1,99 @@
+{{/*
+  T1 — broker ALL model traffic through the gateway.
+
+  WHY. A trial child is hostile-capable: a stranger holds cluster-admin inside their own
+  vcluster, so any credential placed in the child is theirs to copy and keep after expiry.
+  The Vertex credential therefore never leaves the parent: the gateway holds it, children
+  speak the OpenAI wire format to the gateway, and the gateway translates to Vertex.
+  Defence in depth is pinning kagent's native GeminiVertexAI/AnthropicVertexAI providers
+  OUT of trial children (they would bypass this) — that half lives in the child blueprint,
+  not here.
+
+  FAIL-CLOSED BY CONSTRUCTION. The client-key policy below is attached unconditionally to
+  the route. Keys are label-selected Secrets ({{ .Values.llm.clientKeys.matchLabels | toJson }})
+  holding `sha256:<hex>` hashes -- this chart deliberately creates NONE. With no matching
+  Secret every request is 401: enabling llm without provisioning a key exposes nothing.
+  Per-trial key issuance (and revocation-first teardown, T3) is the credit engine's job
+  (T2): one labelled Secret per trial, `metadata` on the key becomes the CEL descriptor
+  for per-tenant token rate limits.
+
+  This is the exit test's target: a direct Vertex call from inside a child FAILS (no
+  credential exists there), a gateway call with a valid key SUCCEEDS.
+*/}}
+{{- if .Values.llm.enabled }}
+{{- $ns := .Release.Namespace }}
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayBackend
+metadata:
+  name: llm-vertex
+  namespace: {{ $ns }}
+  labels:
+    app.kubernetes.io/part-of: {{ .Values.gateway.name }}
+spec:
+  ai:
+    provider:
+      vertexai:
+        projectId: {{ required "llm.vertex.projectId is required when llm.enabled" .Values.llm.vertex.projectId | quote }}
+        region: {{ .Values.llm.vertex.region | quote }}
+        {{- with .Values.llm.vertex.model }}
+        {{/* Model override pins EVERY request to one model regardless of what the client
+             asks for. Leave unset so the child's ModelConfig chooses; set it to enforce a
+             single (cheaper) model for all trials. */}}
+        model: {{ . | quote }}
+        {{- end }}
+---
+{{/* Gateway -> Vertex authentication. ADC-compatible service-account JSON read from a
+     Secret THIS CHART DOES NOT CREATE -- the operator places it (hard rule: credentials
+     are placed by hand, never templated). Key defaults to `credentials.json` upstream;
+     ours is explicit so a differently-shaped Secret fails loudly at policy admission,
+     not as a silent 401 from Vertex. */}}
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayPolicy
+metadata:
+  name: llm-vertex-backend-auth
+  namespace: {{ $ns }}
+spec:
+  targetRefs:
+    - group: agentgateway.dev
+      kind: AgentgatewayBackend
+      name: llm-vertex
+  backend:
+    auth:
+      gcp:
+        secretRef:
+          name: {{ .Values.llm.vertex.credentialSecret.name | quote }}
+          key: {{ .Values.llm.vertex.credentialSecret.key | quote }}
+---
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayPolicy
+metadata:
+  name: llm-client-keys
+  namespace: {{ $ns }}
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: llm
+  traffic:
+    apiKeyAuthentication:
+      secretSelector:
+        matchLabels:
+          {{- toYaml .Values.llm.clientKeys.matchLabels | nindent 10 }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: llm
+  namespace: {{ $ns }}
+spec:
+  parentRefs:
+    - name: {{ .Values.gateway.name }}
+      sectionName: https-llm
+  hostnames:
+    - {{ required "llm.hostname is required when llm.enabled" .Values.llm.hostname | quote }}
+  rules:
+    - backendRefs:
+        - group: agentgateway.dev
+          kind: AgentgatewayBackend
+          name: llm-vertex
+{{- end }}

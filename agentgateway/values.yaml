@@ -39,3 +39,33 @@ gateway:
 agentgateway:
   controllerName: agentgateway.dev/agentgateway
   gatewayClassName: agentgateway
+
+# ---------------------------------------------------------------------------
+# T1 — LLM brokering. The gateway fronts Vertex AI so the credential never leaves the
+# parent; children (and any other client) speak the OpenAI wire format to
+# https://<llm.hostname>/v1 with a per-client API key. Disabled by default; when enabled
+# WITHOUT any key Secret it is fail-closed (every request 401s), and the two Secrets it
+# references are ALWAYS operator-placed, never templated:
+#   - llm.vertex.credentialSecret: ADC-compatible service-account JSON (gateway -> Vertex)
+#   - one or more key Secrets matching llm.clientKeys.matchLabels, entries holding
+#     {"keyHash": "sha256:<hex>", "metadata": {...}} (client -> gateway; per-trial, T2)
+llm:
+  enabled: false
+  # Public hostname for the endpoint. Also appended to the Gateway as an HTTPS listener
+  # with its OWN certificate secret (llm.tls.secretName) so cert-manager's gateway-shim
+  # issues it independently of the portal cert.
+  hostname: ""
+  tls:
+    secretName: llm-edge-tls
+  vertex:
+    projectId: ""
+    region: "global"
+    # Optional: pin every request to one model (cost control). Unset = client chooses.
+    model: ""
+    credentialSecret:
+      name: vertex-sa-key
+      key: credentials.json
+  clientKeys:
+    matchLabels:
+      llm.krateo.io/client-keys: "true"
+

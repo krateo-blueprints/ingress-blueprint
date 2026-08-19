@@ -95,6 +95,76 @@
       "title": "Upstream CRDs chart values",
       "description": "Passthrough to the upstream agentgateway-crds chart. Declared because Helm coalesces a values key named after every subchart, and this schema is additionalProperties:false. Not intended for direct use.",
       "x-kubernetes-preserve-unknown-fields": true
+    },
+    "llm": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "T1 LLM brokering: the gateway fronts Vertex AI; the credential never leaves the parent. Fail-closed: without a labelled key Secret every request is 401.",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false
+        },
+        "hostname": {
+          "type": "string",
+          "description": "Public hostname of the endpoint; also appended as an HTTPS listener with its own certificate."
+        },
+        "tls": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "secretName": {
+              "type": "string",
+              "default": "llm-edge-tls"
+            }
+          }
+        },
+        "vertex": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "projectId": {
+              "type": "string"
+            },
+            "region": {
+              "type": "string",
+              "default": "global"
+            },
+            "model": {
+              "type": "string",
+              "description": "Optional: pin every request to one model. Empty = client chooses."
+            },
+            "credentialSecret": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "default": "vertex-sa-key"
+                },
+                "key": {
+                  "type": "string",
+                  "default": "credentials.json"
+                }
+              },
+              "description": "Operator-placed ADC service-account JSON; never templated by this chart."
+            }
+          }
+        },
+        "clientKeys": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "matchLabels": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              },
+              "description": "Label selector for the per-client key Secrets (entries: {\"keyHash\":\"sha256:<hex>\",\"metadata\":{...}}). Per-trial issuance is T2."
+            }
+          }
+        }
+      }
     }
   }
 }

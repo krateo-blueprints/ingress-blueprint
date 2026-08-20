@@ -1,0 +1,65 @@
+{{/*
+  T2 — per-tenant token credits (config layer).
+
+  Emits a rate-limit AgentgatewayPolicy on the LLM route. The gateway reports each request's
+  token cost to an external rate-limit service (credits.service.backendRef) keyed per tenant;
+  that service holds the per-tenant balance and answers OVER_LIMIT once the tenant is
+  exhausted. This chart ships the CONFIG, not the service — the credit-balance semantics live
+  there (contract: agentgateway/docs/credits.md).
+
+  VERIFIED LIMIT of this agentgateway version (controller v1.4.1), correcting the epic brief:
+  `unit: Tokens` costs are evaluated AFTER the request completes — "token-based rate limits
+  apply to future requests only" (the CRD's own words). There is NO pre-charge and NO
+  built-in llm_cost catalog. So a credit is enforced as "block the NEXT request once the
+  tenant's cumulative cost crosses the budget", and one in-flight request can overshoot by at
+  most its own output. credits.perRequestCap bounds that overshoot to a known number via a
+  per-request local token ceiling.
+*/}}
+{{- if .Values.credits.enabled }}
+{{- if not .Values.llm.enabled }}
+{{ fail "credits.enabled requires llm.enabled — credits meter the LLM route" }}
+{{- end }}
+{{- $ns := .Release.Namespace }}
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayPolicy
+metadata:
+  name: llm-credits
+  namespace: {{ $ns }}
+  labels:
+    app.kubernetes.io/part-of: {{ .Values.gateway.name }}
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: llm
+  traffic:
+    rateLimit:
+      {{- /* Per-request hard ceiling (defence in depth): bounds the single-request overshoot
+             the retrospective model allows. Per-proxy window, so a cap — not the balance. */}}
+      {{- with .Values.credits.perRequestCap }}
+      local:
+        - unit: Minutes
+          tokens: {{ . }}
+      {{- end }}
+      {{- /* The credit balance: report token cost to the external service, keyed per tenant.
+             - entry `tenant` = the authenticated client key's metadata (set by T1's
+               apiKeyAuthentication); the service decrements this tenant's balance.
+             - cost: total tokens by default (unit Tokens); set credits.costExpression to a
+               CEL per-model $/token price to meter in CURRENCY — that rating model is C5/S4,
+               align do not rebuild.
+             - FailClosed: if the credit service is down, DENY. An unmeterable trial must not
+               run for free. */}}
+      global:
+        domain: {{ .Values.credits.domain | quote }}
+        failureMode: FailClosed
+        backendRef:
+          {{- toYaml .Values.credits.service.backendRef | nindent 10 }}
+        descriptors:
+          - unit: Tokens
+            {{- with .Values.credits.costExpression }}
+            cost: {{ . | quote }}
+            {{- end }}
+            entries:
+              - name: tenant
+                expression: {{ .Values.credits.tenantExpression | quote }}
+{{- end }}

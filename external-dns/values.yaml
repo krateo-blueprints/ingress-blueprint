@@ -26,7 +26,17 @@ external-dns:
   # when their Service/Gateway does, including on teardown). upsert-only = never
   # delete. See the README: `sync` is what removes stale records, and also what
   # removed the demo's records when its cluster was rebuilt.
-  policy: upsert-only
+  #
+  # Default is `sync` because this instance is the trial edge: when a trial child
+  # is torn down its HTTPRoutes are deleted, and only `sync` deletes the matching
+  # A/CNAME records — with upsert-only they leak, accumulating dead names against
+  # the same zone every expired trial (the P0.4 DNS-leak this closes). `sync` is
+  # made safe here by two render guards that always run: txtOwnerId is required,
+  # so external-dns only ever deletes records whose ownership TXT it wrote (it
+  # never touches a foreign record); and `sync` with empty domainFilters is
+  # rejected outright, so it can never reach beyond the zones you name. Set
+  # policy back to upsert-only only for a shared zone you deliberately never prune.
+  policy: sync
 
   # gateway-httproute is required for the agentgateway edge.
   sources:

@@ -69,3 +69,31 @@ llm:
     matchLabels:
       llm.krateo.io/client-keys: "true"
 
+# ---------------------------------------------------------------------------
+# T2 — per-tenant token credits. Meters the LLM route (requires llm.enabled) against an
+# external rate-limit service that holds each tenant's balance. This ships the CONFIG; the
+# balance service is a separate component (contract in agentgateway/docs/credits.md).
+# Disabled by default. See the doc for the VERIFIED enforcement model (retrospective:
+# blocks the NEXT request after the budget is crossed; single-request overshoot bounded by
+# perRequestCap).
+credits:
+  enabled: false
+  # Arbitrary domain string the rate-limit service uses to namespace counters.
+  domain: krateo-trials
+  # CEL that yields the per-tenant key the balance is decremented against. Default reads the
+  # `tenant` metadata group the T1 client-key auth attaches to the request.
+  tenantExpression: 'apiKey.tenant'
+  # Optional CEL for the per-request cost. Empty = total tokens (unit Tokens). Set to a
+  # per-model $/token price expression to meter in currency (the C5/S4 rating model).
+  costExpression: ""
+  # Hard ceiling on any ONE request (bounds the retrospective-overshoot). Tokens/minute
+  # per proxy; empty = no per-request cap (overshoot then bounded only by the model output).
+  perRequestCap: 8000
+  # The external rate-limit service implementing the credit balance (Envoy RLS gRPC).
+  service:
+    backendRef:
+      kind: Service
+      name: credit-ratelimit
+      namespace: krateo-system
+      port: 8081
+

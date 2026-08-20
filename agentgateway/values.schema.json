@@ -165,6 +165,62 @@
           }
         }
       }
+    },
+    "credits": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "T2 per-tenant token credits. Meters the LLM route against an external balance service. Requires llm.enabled.",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false
+        },
+        "domain": {
+          "type": "string",
+          "default": "krateo-trials"
+        },
+        "tenantExpression": {
+          "type": "string",
+          "default": "apiKey.tenant"
+        },
+        "costExpression": {
+          "type": "string"
+        },
+        "perRequestCap": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "service": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "backendRef": {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": {
+                "group": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "namespace": {
+                  "type": "string"
+                },
+                "port": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   }
 }

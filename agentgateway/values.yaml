@@ -68,6 +68,16 @@ llm:
   clientKeys:
     matchLabels:
       llm.krateo.io/client-keys: "true"
+  # Per-tenant metering: add a label to every gateway Prometheus metric, evaluated from the
+  # authenticated client key's metadata, so gen_ai token usage splits by tenant. Without it
+  # usage is labelled only by route+model and all tenants collapse into one series.
+  # Frontend policies can only target the Gateway, so non-LLM requests get the label too,
+  # with value "unknown" (the key metadata is absent there); cardinality = number of tenants.
+  metering:
+    tenantLabel:
+      enabled: true
+      name: tenant
+      expression: 'apiKey.tenant'
 
 # ---------------------------------------------------------------------------
 # T2 — per-tenant token credits. Meters the LLM route (requires llm.enabled) against an

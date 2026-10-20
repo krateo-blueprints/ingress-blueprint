@@ -163,6 +163,31 @@
               "description": "Label selector for the per-client key Secrets (entries: {\"keyHash\":\"sha256:<hex>\",\"metadata\":{...}}). Per-trial issuance is T2."
             }
           }
+        },
+        "metering": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "tenantLabel": {
+              "type": "object",
+              "additionalProperties": false,
+              "description": "Add a label to every gateway metric from the authenticated client key's metadata, so LLM token usage splits per tenant. Non-LLM requests get value \"unknown\".",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "expression": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "CEL evaluated per request. Default apiKey.tenant."
+                }
+              }
+            }
+          }
         }
       }
     },

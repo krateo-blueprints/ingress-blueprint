@@ -37,6 +37,6 @@ broker here is the prerequisite either way and is complete.
 ## Hook for T2 (credits)
 
 Each client key is a labelled Secret whose entry carries `{"keyHash":"…","metadata":{…}}`.
-`metadata` becomes the CEL descriptor for `traffic.rateLimit` (`RateLimitType::Tokens`,
-pre-charge + amend, hard stop) — one key per trial, revoked first at teardown (T3). This
-chart deliberately stops at the auth boundary; the metering policy is T2.
+`metadata` is readable in CEL as `apiKey.<field>`: `apiKey.tenant` keys each tenant's
+credit bucket and metrics label, and `apiKey.plan` selects its credit plan
+(`credits`, see [credits.md](credits.md)). One key per tenant, revoked first at teardown (T3).

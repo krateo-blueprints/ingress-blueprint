@@ -1,30 +1,46 @@
 {{/*
-  T2 — per-tenant token credits (config layer).
+  T2 — per-tenant token credits, enforced by agentgateway policy alone (no balance service).
 
-  Emits a rate-limit AgentgatewayPolicy on the LLM route. The gateway reports each request's
-  token cost to an external rate-limit service (credits.service.backendRef) keyed per tenant;
-  that service holds the per-tenant balance and answers OVER_LIMIT once the tenant is
-  exhausted. This chart ships the CONFIG, not the service — the credit-balance semantics live
-  there (contract: agentgateway/docs/credits.md).
+  One AgentgatewayPolicy on the LLM route with a per-tenant LOCAL token bucket: `key` is CEL
+  over the authenticated client key's metadata (credits.tenantExpression, default
+  apiKey.tenant), so every tenant gets its own bucket. The bucket's plan is chosen with
+  `conditional`: one branch per plan matched on credits.planExpression (default apiKey.plan,
+  the `plan` the provisioning blueprint writes into the key's metadata), then the
+  credits.defaultPlan branch as the unconditioned fallback — a key with no or an unknown plan
+  is never unmetered.
 
-  VERIFIED LIMIT of this agentgateway version (controller v1.4.1), correcting the epic brief:
-  `unit: Tokens` costs are evaluated AFTER the request completes — "token-based rate limits
-  apply to future requests only" (the CRD's own words). There is NO pre-charge and NO
-  built-in llm_cost catalog. So a credit is enforced as "block the NEXT request once the
-  tenant's cumulative cost crosses the budget", and one in-flight request can overshoot by at
-  most its own output. credits.perRequestCap bounds that overshoot to a known number via a
-  per-request local token ceiling.
+  How a credit maps onto a bucket (verified live on agentgateway v1.6.0):
+  - the bucket starts FULL at `burst` tokens and refills `tokensPerHour` every hour;
+  - a ONE-OFF credit (trial) is burst = the credit, tokensPerHour ≈ 0. It holds regardless of
+    trial length because the key is revoked at teardown;
+  - a RECURRING credit (monthly) is tokensPerHour = credit / hours-per-period, with a
+    bounded burst.
+  - Exhaustion returns 429 ("rate limit exceeded"). Tokens are counted after the request
+    completes, so the call that crosses zero may overshoot by its own size; the NEXT one is
+    refused.
+
+  Known limits (documented in docs/credits.md): counts raw tokens, not USD (local limits take
+  no cost CEL), so the amounts are converted at a measured effective $/token; buckets live in
+  the proxy's memory, so a gateway restart refills them and each replica keeps its own.
 */}}
 {{- if .Values.credits.enabled }}
 {{- if not .Values.llm.enabled }}
 {{ fail "credits.enabled requires llm.enabled — credits meter the LLM route" }}
 {{- end }}
-{{- $ns := .Release.Namespace }}
+{{- $plans := .Values.credits.plans | default dict }}
+{{- if not $plans }}
+{{ fail "credits.enabled requires credits.plans (set the amounts at deploy time)" }}
+{{- end }}
+{{- $default := .Values.credits.defaultPlan }}
+{{- if not (hasKey $plans $default) }}
+{{ fail (printf "credits.defaultPlan %q must name one of credits.plans" $default) }}
+{{- end }}
+{{- $key := .Values.credits.tenantExpression }}
 apiVersion: agentgateway.dev/v1alpha1
 kind: AgentgatewayPolicy
 metadata:
   name: llm-credits
-  namespace: {{ $ns }}
+  namespace: {{ .Release.Namespace }}
   labels:
     app.kubernetes.io/part-of: {{ .Values.gateway.name }}
 spec:
@@ -34,32 +50,24 @@ spec:
       name: llm
   traffic:
     rateLimit:
-      {{- /* Per-request hard ceiling (defence in depth): bounds the single-request overshoot
-             the retrospective model allows. Per-proxy window, so a cap — not the balance. */}}
-      {{- with .Values.credits.perRequestCap }}
-      local:
-        - unit: Minutes
-          tokens: {{ . }}
-      {{- end }}
-      {{- /* The credit balance: report token cost to the external service, keyed per tenant.
-             - entry `tenant` = the authenticated client key's metadata (set by T1's
-               apiKeyAuthentication); the service decrements this tenant's balance.
-             - cost: total tokens by default (unit Tokens); set credits.costExpression to a
-               CEL per-model $/token price to meter in CURRENCY — that rating model is C5/S4,
-               align do not rebuild.
-             - FailClosed: if the credit service is down, DENY. An unmeterable trial must not
-               run for free. */}}
-      global:
-        domain: {{ .Values.credits.domain | quote }}
-        failureMode: FailClosed
-        backendRef:
-          {{- toYaml .Values.credits.service.backendRef | nindent 10 }}
-        descriptors:
-          - unit: Tokens
-            {{- with .Values.credits.costExpression }}
-            cost: {{ . | quote }}
-            {{- end }}
-            entries:
-              - name: tenant
-                expression: {{ .Values.credits.tenantExpression | quote }}
+      conditional:
+        {{- range $name := keys $plans | sortAlpha }}
+        {{- if ne $name $default }}
+        {{- $p := index $plans $name }}
+        - condition: {{ printf "%s == %q" $.Values.credits.planExpression $name | quote }}
+          policy:
+            local:
+              - key: {{ $key | quote }}
+                tokens: {{ required (printf "credits.plans.%s.tokensPerHour is required" $name) $p.tokensPerHour | int64 }}
+                unit: Hours
+                burst: {{ required (printf "credits.plans.%s.burst is required" $name) $p.burst | int64 }}
+        {{- end }}
+        {{- end }}
+        {{- $d := index $plans $default }}
+        - policy:
+            local:
+              - key: {{ $key | quote }}
+                tokens: {{ required (printf "credits.plans.%s.tokensPerHour is required" $default) $d.tokensPerHour | int64 }}
+                unit: Hours
+                burst: {{ required (printf "credits.plans.%s.burst is required" $default) $d.burst | int64 }}
 {{- end }}

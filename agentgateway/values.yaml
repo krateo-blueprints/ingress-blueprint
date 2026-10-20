@@ -80,30 +80,22 @@ llm:
       expression: 'apiKey.tenant'
 
 # ---------------------------------------------------------------------------
-# T2 — per-tenant token credits. Meters the LLM route (requires llm.enabled) against an
-# external rate-limit service that holds each tenant's balance. This ships the CONFIG; the
-# balance service is a separate component (contract in agentgateway/docs/credits.md).
-# Disabled by default. See the doc for the VERIFIED enforcement model (retrospective:
-# blocks the NEXT request after the budget is crossed; single-request overshoot bounded by
-# perRequestCap).
+# T2 — per-tenant token credits, enforced by agentgateway policy alone (requires
+# llm.enabled): a per-tenant local token bucket on the LLM route, sized per plan. Disabled
+# by default. Model, limits and how to size a plan: agentgateway/docs/credits.md.
 credits:
   enabled: false
-  # Arbitrary domain string the rate-limit service uses to namespace counters.
-  domain: krateo-trials
-  # CEL that yields the per-tenant key the balance is decremented against. Default reads the
-  # `tenant` metadata group the T1 client-key auth attaches to the request.
+  # CEL selecting the tenant's bucket: the `tenant` the T1 client key carries.
   tenantExpression: 'apiKey.tenant'
-  # Optional CEL for the per-request cost. Empty = total tokens (unit Tokens). Set to a
-  # per-model $/token price expression to meter in currency (the C5/S4 rating model).
-  costExpression: ""
-  # Hard ceiling on any ONE request (bounds the retrospective-overshoot). Tokens/minute
-  # per proxy; empty = no per-request cap (overshoot then bounded only by the model output).
-  perRequestCap: 8000
-  # The external rate-limit service implementing the credit balance (Envoy RLS gRPC).
-  service:
-    backendRef:
-      kind: Service
-      name: credit-ratelimit
-      namespace: krateo-system
-      port: 8081
+  # CEL yielding the tenant's plan name: the `plan` the provisioning blueprint writes into
+  # the client key's metadata. Matched against the keys of `plans`.
+  planExpression: 'apiKey.plan'
+  # Plan used when the key carries no plan, or one not listed below. Must name a plan.
+  defaultPlan: trial
+  # Plan name -> bucket. Amounts are business config: set them at deploy time, not here.
+  #   tokensPerHour: refill per hour (recurring credit = credit / hours in the period;
+  #                  one-off credit = 1)
+  #   burst:         bucket size, and its starting balance (one-off credit = the credit)
+  # e.g. plans: {trial: {tokensPerHour: 1, burst: <credit>}, standard: {tokensPerHour: <n>, burst: <n>}}
+  plans: {}
 

@@ -96,4 +96,28 @@ spec:
         - group: agentgateway.dev
           kind: AgentgatewayBackend
           name: llm-vertex
+{{- with .Values.llm.metering.tenantLabel }}
+{{- if .enabled }}
+---
+{{/* Per-tenant metering label. A frontend policy may only target the Gateway, and frontend
+     policies merge per field (not deeply): another policy on this Gateway that also sets
+     frontend.metrics would replace this one, so keep metric labels in this policy. */}}
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayPolicy
+metadata:
+  name: llm-tenant-metrics
+  namespace: {{ $ns }}
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: {{ $.Values.gateway.name }}
+  frontend:
+    metrics:
+      attributes:
+        add:
+          - name: {{ .name | quote }}
+            expression: {{ .expression | quote }}
+{{- end }}
+{{- end }}
 {{- end }}

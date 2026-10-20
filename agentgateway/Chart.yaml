@@ -24,8 +24,8 @@ dependencies:
   # Nothing reports an error; the edge silently has no data plane. Listed first so Helm
   # applies it before the controller.
   - name: agentgateway-crds
-    version: "1.4.1"
+    version: "1.6.0"
     repository: oci://ghcr.io/agentgateway/charts
   - name: agentgateway
-    version: "1.4.1"
+    version: "1.6.0"
     repository: oci://ghcr.io/agentgateway/charts

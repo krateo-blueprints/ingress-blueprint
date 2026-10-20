@@ -194,53 +194,50 @@
     "credits": {
       "type": "object",
       "additionalProperties": false,
-      "description": "T2 per-tenant token credits. Meters the LLM route against an external balance service. Requires llm.enabled.",
+      "description": "T2 per-tenant token credits enforced by agentgateway policy alone: a per-tenant local token bucket on the LLM route, sized per plan. Requires llm.enabled.",
       "properties": {
         "enabled": {
           "type": "boolean",
           "default": false
         },
-        "domain": {
-          "type": "string",
-          "default": "krateo-trials"
-        },
         "tenantExpression": {
           "type": "string",
-          "default": "apiKey.tenant"
+          "minLength": 1,
+          "default": "apiKey.tenant",
+          "description": "CEL selecting the tenant's bucket."
         },
-        "costExpression": {
-          "type": "string"
+        "planExpression": {
+          "type": "string",
+          "minLength": 1,
+          "default": "apiKey.plan",
+          "description": "CEL yielding the tenant's plan name, matched against the keys of plans."
         },
-        "perRequestCap": {
-          "type": [
-            "integer",
-            "null"
-          ],
-          "minimum": 1
+        "defaultPlan": {
+          "type": "string",
+          "minLength": 1,
+          "default": "trial",
+          "description": "Plan for keys with no or an unknown plan. Must name a plan."
         },
-        "service": {
+        "plans": {
           "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "backendRef": {
-              "type": "object",
-              "additionalProperties": true,
-              "properties": {
-                "group": {
-                  "type": "string"
-                },
-                "kind": {
-                  "type": "string"
-                },
-                "name": {
-                  "type": "string"
-                },
-                "namespace": {
-                  "type": "string"
-                },
-                "port": {
-                  "type": "integer"
-                }
+          "description": "Plan name -> bucket. Set the amounts at deploy time.",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "tokensPerHour",
+              "burst"
+            ],
+            "properties": {
+              "tokensPerHour": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Refill per hour. One-off credit: 1."
+              },
+              "burst": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Bucket size and starting balance. One-off credit: the credit."
               }
             }
           }

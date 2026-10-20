@@ -68,9 +68,10 @@ llm:
   clientKeys:
     matchLabels:
       llm.krateo.io/client-keys: "true"
-  # Per-tenant metering: add a label to every gateway Prometheus metric, evaluated from the
-  # authenticated client key's metadata, so gen_ai token usage splits by tenant. Without it
-  # usage is labelled only by route+model and all tenants collapse into one series.
+  # Per-tenant metering: add the tenant, evaluated from the authenticated client key's
+  # metadata, to every gateway metric AND every access-log line. The LLM access-log lines carry
+  # their cost (agw.ai.usage.cost.total) and reach ClickHouse through the log collector, so
+  # per-tenant spend is a query over otel_logs. Without it all tenants collapse into one series.
   # Frontend policies can only target the Gateway, so non-LLM requests get the label too,
   # with value "unknown" (the key metadata is absent there); cardinality = number of tenants.
   metering:

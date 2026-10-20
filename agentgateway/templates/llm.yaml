@@ -99,9 +99,10 @@ spec:
 {{- with .Values.llm.metering.tenantLabel }}
 {{- if .enabled }}
 ---
-{{/* Per-tenant metering label. A frontend policy may only target the Gateway, and frontend
-     policies merge per field (not deeply): another policy on this Gateway that also sets
-     frontend.metrics would replace this one, so keep metric labels in this policy. */}}
+{{/* Per-tenant metering: the tenant as a metrics label and an access-log attribute. A frontend
+     policy may only target the Gateway, and frontend policies merge per field (not deeply):
+     another policy on this Gateway that also sets frontend.metrics or frontend.accessLog would
+     replace this one, so keep both here. */}}
 apiVersion: agentgateway.dev/v1alpha1
 kind: AgentgatewayPolicy
 metadata:
@@ -114,6 +115,15 @@ spec:
       name: {{ $.Values.gateway.name }}
   frontend:
     metrics:
+      attributes:
+        add:
+          - name: {{ .name | quote }}
+            expression: {{ .expression | quote }}
+    # The same tenant on every access-log line. The LLM lines already carry their cost
+    # (agw.ai.usage.cost.total) and land in ClickHouse via the log collector, so per-tenant
+    # spend is a SQL aggregate over otel_logs: no metrics scrape needed. Rendered as
+    # tenant="<value>" in the line.
+    accessLog:
       attributes:
         add:
           - name: {{ .name | quote }}

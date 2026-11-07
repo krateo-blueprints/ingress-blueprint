@@ -86,5 +86,9 @@ packages, and pushes each to:
 oci://ghcr.io/krateo-blueprints/charts/<chart>:<tag>
 ```
 
-Pull requests run `lint.yaml`, which renders and lints every chart and runs the authoritative
+and publishes the same archives to the Marketplace's `operators` index
+(`https://krateo-blueprints.github.io/charts/operators`), per the organisation's publishing
+standard (krateo-blueprints/charts `PUBLISHING.md`).
+
+Pull requests and pushes to `main` run `lint.yaml`, which renders and lints every chart and runs the authoritative
 `lint-docs` gate on the docs set. See [docs/release.md](docs/release.md) for the runbook.

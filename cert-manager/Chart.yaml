@@ -10,6 +10,7 @@ appVersion: "v1.21.1"
 home: https://krateo.io
 keywords: [krateo, platformops, tls, cert-manager]
 sources:
+  - https://github.com/krateo-blueprints/ingress-blueprint
   - https://github.com/cert-manager/cert-manager
 dependencies:
   - name: cert-manager

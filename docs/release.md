@@ -54,7 +54,7 @@ the source stays version-agnostic and the tag is the single source of truth.
    - runs `helm package --version <tag>`.
 
    Only when every chart has packaged does it `helm push` each to the OCI registry, and then
-   the organisation's publisher (`krateo-blueprints/charts/.github/workflows/publish-chart.yaml@1`)
+   the organisation's publisher (`krateo-blueprints/charts/.github/workflows/publish-chart.yaml`, pinned per its rule 9)
    adds the same archives to the `operators` index. The publisher succeeds only once the served
    index lists every chart at the tag and `helm pull --repo` installs each anonymously.
 

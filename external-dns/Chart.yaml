@@ -10,6 +10,7 @@ appVersion: "0.21.1"
 home: https://krateo.io
 keywords: [krateo, platformops, dns, ingress]
 sources:
+  - https://github.com/krateo-blueprints/ingress-blueprint
   - https://github.com/kubernetes-sigs/external-dns
 dependencies:
   - name: external-dns

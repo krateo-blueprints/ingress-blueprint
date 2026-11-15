@@ -48,7 +48,7 @@ fixed in `values.yaml`:
 
 | Key | Type | Default | Notes |
 |---|---|---|---|
-| `internalCA.enabled` | boolean | `true` | Always-on self-signed CA chain — the platform trust anchor. Certificates it issues are not publicly trusted. |
+| `internalCA.enabled` | boolean | `true` | Always-on self-signed CA chain — the platform trust anchor. Certificates it issues are not publicly trusted. The root `Certificate` lives 10 years, renews 1 year before expiry and **keeps its private key** (`rotationPolicy: Never`), so a renewal never invalidates the certificates it signed. Changing the key is a planned procedure ([usage](usage.md#rotate-the-internal-root-cas-key)). |
 | `internalCA.name` | string | `krateo-selfsigned-ca` | Name of the CA `ClusterIssuer`. |
 | `internalCA.namespace` | string | `""` (the release namespace) | Where the root CA `Certificate` and its Secret `krateo-root-ca-key-pair` are written. Must be cert-manager's cluster resource namespace (by default the namespace cert-manager runs in), or the CA `ClusterIssuer` never becomes Ready. Set it when cert-manager runs elsewhere; the namespace must exist. trust-manager's trust namespace must be the same, for `internal-ca-bundle`. |
 | `acme.enabled` | boolean | `false` | Public HTTP-01 issuer. Enable only once public DNS resolves to the Gateway. |

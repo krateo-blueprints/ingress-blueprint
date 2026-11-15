@@ -1,0 +1,33 @@
+{{- /*
+The platform's internal CA certificate, distributed by trust-manager. trust-manager writes
+a ConfigMap named after the Bundle, holding the certificate under target.key, in each listed
+namespace, and keeps it current when cert-manager renews the CA.
+
+The source is the Secret cert-manager-issuers writes (krateo-root-ca-key-pair), and only its
+ca.crt key: the public certificate. trust-manager looks for it in its trust namespace
+(app.trust.namespace), which must be cert-manager-issuers' internalCA.namespace.
+*/}}
+{{- $namespaces := .Values.target.namespaces | default list }}
+{{- if not $namespaces }}
+{{- fail "internal-ca-bundle: target.namespaces is empty. List the namespaces whose workloads must trust the internal CA: a Bundle without a namespace selector writes the ConfigMap to every namespace in the cluster." }}
+{{- end }}
+apiVersion: trust.cert-manager.io/v1alpha1
+kind: Bundle
+metadata:
+  name: {{ .Values.name }}
+spec:
+  sources:
+    - secret:
+        name: krateo-root-ca-key-pair
+        key: ca.crt
+  target:
+    configMap:
+      key: {{ .Values.target.key }}
+    namespaceSelector:
+      matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: In
+          values:
+            {{- range $namespaces }}
+            - {{ . }}
+            {{- end }}

@@ -8,7 +8,7 @@ tags:
   - api
   - crd
   - schema
-timestamp: 2026-08-11T00:00:00+00:00
+timestamp: 2026-11-15T00:00:00+00:00
 ---
 
 # API
@@ -44,13 +44,25 @@ Schema title *cert-manager and platform issuers*. `additionalProperties: false`.
 `internalCA`, `acme`.
 
 - `internalCA` (required `enabled`, `additionalProperties: false`): `enabled` (boolean,
-  default `true`), `name` (string, `minLength: 1`, default `krateo-selfsigned-ca`).
+  default `true`), `name` (string, `minLength: 1`, default `krateo-selfsigned-ca`),
+  `namespace` (string, a DNS-1123 label or empty, `maxLength: 63`, default `""`).
 - `acme` (required `enabled`, `additionalProperties: false`): `enabled` (boolean, default
   `false`), `email` (string), `server` (string, default Let's Encrypt production),
   `gatewayRef.name` / `gatewayRef.namespace` (strings, `minLength: 1`).
 - `acmeDns01` (optional): `enabled` (boolean), `name` (string, default `krateo-acme-dns01`),
   `email` (string), `server` (string), `cloudflare.apiTokenSecretRef` (required `name`,
   `key`).
+- `global` — Helm global values.
+
+## Internal-ca-bundle
+
+Schema title *Internal CA trust bundle*. `additionalProperties: false`. Required: `name`,
+`target`.
+
+- `name` — string, a DNS-1123 subdomain, `maxLength: 253`, default `krateo-internal-ca`.
+- `target` (required `key`, `namespaces`, `additionalProperties: false`): `key` (string,
+  pattern `^[-._a-zA-Z0-9]+$`, default `ca.crt`), `namespaces` (array of DNS-1123 labels,
+  `uniqueItems`). An empty `namespaces` passes the schema and fails the render (see Notes).
 - `global` — Helm global values.
 
 ## External-dns
@@ -76,7 +88,8 @@ values). No tunable fields.
 
 ## Notes
 
-- Required fields such as `txtOwnerId` and `acme.email` are validated at render time by a
+- Required fields such as `txtOwnerId`, `acme.email` and `internal-ca-bundle`'s
+  `target.namespaces` are validated at render time by a
   `fail` guard rather than `minLength`, because a chart's own defaults must satisfy its schema
   for `helm lint` to pass.
 - Passthrough keys named after subcharts are present so Helm's value coalescing works under

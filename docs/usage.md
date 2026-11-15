@@ -8,7 +8,7 @@ tags:
   - usage
   - installer
   - gateway-api
-timestamp: 2026-08-11T00:00:00+00:00
+timestamp: 2026-11-15T00:00:00+00:00
 ---
 
 # Usage
@@ -104,6 +104,32 @@ the hostname points at the edge that serves the challenge. Set `acme.enabled: tr
 Wildcard certificates require the DNS-01 issuer (`acmeDns01`) instead — HTTP-01 cannot issue
 them.
 
+## Internal TLS
+
+`internal-ca-bundle` lets in-cluster clients trust services whose certificates the internal CA
+issues (authn's internal listener, for one). The installer's `features.internalTls` enables
+`cert-manager-issuers`, upstream trust-manager and `internal-ca-bundle`; cert-manager itself
+must already be served. `internal-ca-bundle` waits for trust-manager's `trust.cert-manager.io`
+API.
+
+```yaml
+componentValues:
+  cert-manager-issuers:
+    internalCA:
+      namespace: cert-manager   # the namespace cert-manager runs in
+  trust-manager:
+    app:
+      trust:
+        namespace: cert-manager # the same namespace
+  internal-ca-bundle:
+    target:
+      namespaces: [krateo-system]  # where the clients run
+```
+
+Each listed namespace gets the ConfigMap `krateo-internal-ca` holding only the CA's public
+certificate under `ca.crt`. A client mounts that key as its root CA. Never point a client at
+`krateo-root-ca-key-pair`, which holds the CA's private key.
+
 ## Pin an address
 
 Leave `agentgateway`'s `gateway.addresses` unset and the cloud assigns an ephemeral address,
@@ -120,6 +146,7 @@ the **running pod**, not just the CRD:
 kubectl get gateway -A
 kubectl get gatewayclass
 kubectl get clusterissuers
+kubectl get bundles
 kubectl -n <ns> get deploy external-dns -o yaml | grep -A3 CF_API_TOKEN
 ```
 

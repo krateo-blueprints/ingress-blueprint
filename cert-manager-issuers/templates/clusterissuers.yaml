@@ -25,9 +25,12 @@ metadata:
     literally called cert-manager. When cert-manager is a Krateo composition it
     renders into the composition's namespace, so hardcoding `cert-manager` both
     fails RBAC generation ("namespaces \"cert-manager\" not found") and would put
-    the CA secret somewhere the ca ClusterIssuer cannot read it.
+    the CA secret somewhere the ca ClusterIssuer cannot read it. The release
+    namespace is right only when cert-manager runs in it too; when cert-manager
+    runs elsewhere (installed separately), internalCA.namespace names its
+    namespace, which then exists.
   */}}
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ .Values.internalCA.namespace | default .Release.Namespace }}
 spec:
   isCA: true
   commonName: krateo-root-ca

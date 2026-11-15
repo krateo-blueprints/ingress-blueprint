@@ -1,0 +1,25 @@
+# The platform's internal CA certificate, distributed as one trust-manager Bundle.
+#
+# Why a chart of its own, not a template in cert-manager-issuers: a Bundle needs the
+# trust.cert-manager.io CRDs, which trust-manager installs. Inside cert-manager-issuers it
+# would race trust-manager in one release, the same race cert-manager-issuers was split out
+# of cert-manager to avoid, and gating the issuers on trust-manager's API would block every
+# install that wants issuers but not trust-manager. As its own component, it is ordered
+# after trust-manager by the installer.
+#
+# The source is fixed: the Secret krateo-root-ca-key-pair, key ca.crt, which
+# cert-manager-issuers writes (its internalCA.namespace). trust-manager reads Bundle sources
+# only from its trust namespace (app.trust.namespace), so that namespace and
+# cert-manager-issuers' internalCA.namespace must be the same. Only ca.crt, the public
+# certificate, is copied; the Secret's private key never leaves it.
+
+# The Bundle's name, which is also the name of the ConfigMap written in each target
+# namespace.
+name: krateo-internal-ca
+
+target:
+  # The key the CA certificate is written under in each target ConfigMap.
+  key: ca.crt
+  # The namespaces to write the ConfigMap in. Required, and refused when empty: a Bundle
+  # without a namespace selector writes to every namespace in the cluster.
+  namespaces: []

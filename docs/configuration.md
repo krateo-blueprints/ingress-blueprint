@@ -8,7 +8,7 @@ tags:
   - configuration
   - values
   - gateway-api
-timestamp: 2026-08-11T00:00:00+00:00
+timestamp: 2026-11-15T00:00:00+00:00
 ---
 
 # Configuration
@@ -50,6 +50,7 @@ fixed in `values.yaml`:
 |---|---|---|---|
 | `internalCA.enabled` | boolean | `true` | Always-on self-signed CA chain — the platform trust anchor. Certificates it issues are not publicly trusted. |
 | `internalCA.name` | string | `krateo-selfsigned-ca` | Name of the CA `ClusterIssuer`. |
+| `internalCA.namespace` | string | `""` (the release namespace) | Where the root CA `Certificate` and its Secret `krateo-root-ca-key-pair` are written. Must be cert-manager's cluster resource namespace (by default the namespace cert-manager runs in), or the CA `ClusterIssuer` never becomes Ready. Set it when cert-manager runs elsewhere; the namespace must exist. trust-manager's trust namespace must be the same, for `internal-ca-bundle`. |
 | `acme.enabled` | boolean | `false` | Public HTTP-01 issuer. Enable only once public DNS resolves to the Gateway. |
 | `acme.email` | string | `""` | **Required** when `acme.enabled` is true; a render-time guard fails an empty value. |
 | `acme.server` | string | Let's Encrypt production | ACME directory URL. |
@@ -57,6 +58,19 @@ fixed in `values.yaml`:
 | `acmeDns01.enabled` | boolean | `false` | Second ACME issuer solving DNS-01. Required for **wildcard** certificates, which HTTP-01 cannot issue. |
 | `acmeDns01.email` | string | `""` | Required when enabled. |
 | `acmeDns01.cloudflare.apiTokenSecretRef` | object | `cloudflare-api-token` / `api-token` | Reference to the out-of-band Secret holding the DNS API token, in cert-manager's cluster resource namespace. |
+
+## internal-ca-bundle
+
+| Key | Type | Default | Notes |
+|---|---|---|---|
+| `name` | string | `krateo-internal-ca` | The `Bundle`'s name, and the name of the ConfigMap written in each target namespace. |
+| `target.key` | string | `ca.crt` | The ConfigMap key the CA certificate is written under. |
+| `target.namespaces` | array of strings | `[]` | **Required**: the namespaces to write the ConfigMap in. A render-time guard fails an empty list, because a `Bundle` without a namespace selector writes to every namespace. |
+
+The source is fixed, not a value: the Secret `krateo-root-ca-key-pair`, key `ca.crt`, which
+`cert-manager-issuers` writes. Only the public certificate is copied. trust-manager reads the
+source from its trust namespace (`app.trust.namespace`), which must be `cert-manager-issuers`'
+`internalCA.namespace`.
 
 ## external-dns
 

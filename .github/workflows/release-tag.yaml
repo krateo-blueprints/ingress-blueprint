@@ -34,7 +34,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # Refuse to release a commit no lint run ever passed on (PUBLISHING.md rule 10). A quiet check
       # list reads as success, so the never-triggered case is the one this makes loud.

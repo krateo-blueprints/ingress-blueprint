@@ -35,9 +35,25 @@ spec:
   isCA: true
   commonName: krateo-root-ca
   secretName: krateo-root-ca-key-pair
+  {{/*
+    The root keeps its key. Clients trust this CA through internal-ca-bundle,
+    which copies ONLY the current ca.crt, and the certificates it signed are
+    re-issued on their own schedules, not when the root changes. cert-manager's
+    defaults (90 days, and since v1.18 a NEW key at every re-issue) would rotate
+    the root's key at renewal: the bundle would switch to the new root at once
+    while every leaf stayed signed by the old key until its own renewal, so for
+    that gap every client would refuse every internal-CA certificate, on every
+    cycle. With `rotationPolicy: Never` a renewal or any re-issue keeps the key,
+    so leaves signed before it still verify against the bundle. The long
+    duration makes renewal rare; changing the root's KEY is a planned procedure
+    (docs/usage.md, "Rotate the internal root CA's key").
+  */}}
+  duration: 87600h   # 10 years
+  renewBefore: 8760h # renew 1 year before expiry, keeping the key
   privateKey:
     algorithm: ECDSA
     size: 256
+    rotationPolicy: Never
   issuerRef:
     name: krateo-selfsigned-bootstrap
     kind: ClusterIssuer

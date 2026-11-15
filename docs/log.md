@@ -14,6 +14,16 @@ timestamp: 2026-11-15T00:00:00+00:00
 
 ## Unreleased
 
+- `cert-manager-issuers`: the internal root CA keeps its private key across renewals
+  (`privateKey.rotationPolicy: Never`, `duration: 87600h`, `renewBefore: 8760h`). On cert-manager's
+  defaults (90 days, and since v1.18 a new key at every re-issue) the root re-keyed at each
+  renewal. `internal-ca-bundle` then switched clients to the new root while every certificate it
+  had signed stayed on the old key until its own renewal, so for that gap every client refused
+  them. On clusters already running the chart the upgrade re-issues nothing: the current 90-day
+  root stays until its scheduled renewal, which keeps the key and issues a 10-year certificate
+  (measured on cert-manager v1.21.1). Values are unchanged. Changing the key is now a documented
+  procedure.
+
 - Added the `trust-manager` chart: upstream trust-manager v0.20.0 as a dependency, versioned
   by this repository's tag. jetstack's chart version `v0.20.0` made the installer's
   CompositionDefinition serve `vv0-20-0` while the installer looked for `v0-20-0`, so

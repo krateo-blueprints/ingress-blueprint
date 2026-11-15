@@ -136,6 +136,25 @@ Each listed namespace gets the ConfigMap `krateo-internal-ca` holding only the C
 certificate under `ca.crt`. A client mounts that key as its root CA. Never point a client at
 `krateo-root-ca-key-pair`, which holds the CA's private key.
 
+## Rotate the internal root CA's key
+
+The root `Certificate` (`krateo-root-ca`) keeps its private key across renewals
+(`rotationPolicy: Never`, 10-year duration, renewed 1 year early). This is deliberate:
+`internal-ca-bundle` distributes only the **current** `ca.crt`, and each certificate the CA signed
+re-issues on its own schedule. Rotating the root's key would switch every client to the new root
+at once while those certificates still carry the old signature, so every client would refuse them
+until each one renewed.
+
+Changing the key is therefore a planned step:
+
+1. Make sure every client re-reads the `krateo-internal-ca` ConfigMap (or restarts) when it
+   changes.
+2. Delete the Secret `krateo-root-ca-key-pair` in `internalCA.namespace`. cert-manager issues a
+   new root with a new key, and trust-manager copies the new `ca.crt` to every target namespace.
+3. Re-issue every certificate the CA signed (each `Certificate` whose `issuerRef` names
+   `internalCA.name`), for example with `cmctl renew -n <namespace> <name>`. Until a
+   certificate is re-issued, clients trusting the new root refuse it.
+
 ## Pin an address
 
 Leave `agentgateway`'s `gateway.addresses` unset and the cloud assigns an ephemeral address,

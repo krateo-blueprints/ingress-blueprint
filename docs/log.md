@@ -12,6 +12,15 @@ timestamp: 2026-11-15T00:00:00+00:00
 
 # Changelog
 
+## Unreleased
+
+- Releases also publish every chart to the Marketplace's `operators` index
+  (`https://krateo-blueprints.github.io/charts/operators`) through the organisation's publisher,
+  with the same archives pushed to GHCR. A release refuses to start without a successful `lint`
+  run on the tagged commit and the `CHARTS_PUBLISH_TOKEN` secret, and every chart must list this
+  repository in `sources`, so the upstream wrappers now name it first. See
+  [release.md](release.md).
+
 ## 2026-11-15 (0.16.0)
 
 - Releases stamp `org.opencontainers.image.{revision,source,version,ref.name}` into every

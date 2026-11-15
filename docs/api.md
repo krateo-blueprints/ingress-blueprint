@@ -54,6 +54,19 @@ Schema title *cert-manager and platform issuers*. `additionalProperties: false`.
   `key`).
 - `global` — Helm global values.
 
+## Trust-manager
+
+Schema title *trust-manager*. `additionalProperties: false`. No `required` at any depth.
+
+- `trust-manager` — passthrough object to the upstream chart
+  (`x-kubernetes-preserve-unknown-fields`), with two typed fields:
+  - `app.trust.namespace` — string, a DNS-1123 label, `maxLength: 63`.
+  - `app.targetNamespaces` — array of DNS-1123 labels (`maxLength: 63`), `uniqueItems`. The
+    generated CRD types its items as strings (upstream's own schema leaves them untyped).
+  `app` and `app.trust` keep `x-kubernetes-preserve-unknown-fields`, so every other upstream
+  value under them passes through.
+- `global` — Helm global values.
+
 ## Internal-ca-bundle
 
 Schema title *Internal CA trust bundle*. `additionalProperties: false`. Required: `name`,

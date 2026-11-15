@@ -19,6 +19,7 @@ up the whole edge from one Installer CR, with no BYO step.
 | `agentgateway` | Upstream **agentgateway** controller plus the platform `GatewayClass` + `Gateway`. |
 | `cert-manager` | Upstream **cert-manager** operator + CRDs, with Gateway API support on. |
 | `cert-manager-issuers` | The platform's **ClusterIssuers**: an internal self-signed CA chain and optional public ACME issuers. |
+| `trust-manager` | Upstream **trust-manager** operator, `Bundle` CRD and admission webhook, versioned by this repository. |
 | `internal-ca-bundle` | A trust-manager **Bundle** that copies the internal CA's public certificate into a ConfigMap in each listed namespace, for in-cluster TLS clients. |
 | `external-dns` | Upstream **ExternalDNS**, publishing records for Gateway API `HTTPRoute`s and `Service`s. |
 
@@ -41,7 +42,7 @@ in this repo is the reference registration. See [docs/usage.md](docs/usage.md) f
 flow.
 
 `internal-ca-bundle` is outside that chain: the installer's `features.internalTls` enables
-it with `cert-manager-issuers` and upstream trust-manager, after trust-manager's
+it with `cert-manager-issuers` and the `trust-manager` blueprint, after trust-manager's
 `trust.cert-manager.io` API is served. See [docs/usage.md](docs/usage.md#internal-tls).
 
 ## Configure

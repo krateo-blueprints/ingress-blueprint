@@ -14,6 +14,12 @@ timestamp: 2026-11-15T00:00:00+00:00
 
 ## Unreleased
 
+- Added the `trust-manager` chart: upstream trust-manager v0.20.0 as a dependency, versioned
+  by this repository's tag. jetstack's chart version `v0.20.0` made the installer's
+  CompositionDefinition serve `vv0-20-0` while the installer looked for `v0-20-0`, so
+  trust-manager was silently never installed. `trust-manager.app.trust.namespace` and
+  `trust-manager.app.targetNamespaces` are typed (the latter as unique DNS-1123 labels; upstream
+  leaves its items untyped); every other upstream value passes through.
 - Releases also publish every chart to the Marketplace's `operators` index
   (`https://krateo-blueprints.github.io/charts/operators`) through the organisation's publisher,
   with the same archives pushed to GHCR. A release refuses to start without a successful `lint`

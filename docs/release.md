@@ -26,7 +26,7 @@ layout.
 
 The standard decides the channel from the content: a chart with a `values.schema.json` **and** a
 `CompositionDefinition` is a blueprint; every other chart goes to `operators`. None of these
-charts ships a `CompositionDefinition` (the installer registers them as components), so all six
+charts ships a `CompositionDefinition` (the installer registers them as components), so all seven
 are published to `operators`. A chart that gains a `CompositionDefinition` fails the release
 until the workflow also publishes the `blueprints` channel.
 
@@ -74,10 +74,11 @@ For example, tag `0.4.0` publishes:
 - `oci://ghcr.io/krateo-blueprints/charts/agentgateway:0.4.0`
 - `oci://ghcr.io/krateo-blueprints/charts/cert-manager:0.4.0`
 - `oci://ghcr.io/krateo-blueprints/charts/cert-manager-issuers:0.4.0`
+- `oci://ghcr.io/krateo-blueprints/charts/trust-manager:0.4.0`
 - `oci://ghcr.io/krateo-blueprints/charts/internal-ca-bundle:0.4.0`
 - `oci://ghcr.io/krateo-blueprints/charts/external-dns:0.4.0`
 
-and the same six versions in `https://krateo-blueprints.github.io/charts/operators/index.yaml`.
+and the same seven versions in `https://krateo-blueprints.github.io/charts/operators/index.yaml`.
 
 The registry owner is derived from `GITHUB_REPOSITORY_OWNER` (lowercased), and the workflow
 logs in to GHCR with the built-in `GITHUB_TOKEN` (needs `packages: write`).

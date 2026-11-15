@@ -32,6 +32,7 @@ wrapping the upstream charts as dependencies rather than vendoring their templat
 | `agentgateway` | The upstream **agentgateway** controller plus the platform `GatewayClass` + `Gateway`. | agentgateway/agentgateway |
 | `cert-manager` | Upstream **cert-manager** operator + CRDs (with Gateway API support on). | cert-manager/cert-manager |
 | `cert-manager-issuers` | The platform's **ClusterIssuers**: an internal self-signed CA chain and optional public ACME issuers. | cert-manager/cert-manager |
+| `trust-manager` | Upstream **trust-manager** operator, `Bundle` CRD and admission webhook, versioned by this repository. | cert-manager/trust-manager |
 | `internal-ca-bundle` | A trust-manager **Bundle** distributing the internal CA's public certificate to the listed namespaces. | cert-manager/trust-manager |
 | `external-dns` | Upstream **ExternalDNS**, publishing records for Gateway API and Service resources. | kubernetes-sigs/external-dns |
 

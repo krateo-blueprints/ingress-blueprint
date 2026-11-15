@@ -1,0 +1,54 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "trust-manager",
+  "description": "Installs upstream trust-manager (operator, Bundle CRD and admission webhook). The platform's Bundle lives in the internal-ca-bundle blueprint, which depends on this one.",
+  "additionalProperties": false,
+  "properties": {
+    "global": {
+      "type": "object",
+      "title": "Global values",
+      "description": "Helm global values (injected when this chart is used as a subchart)."
+    },
+    "trust-manager": {
+      "type": "object",
+      "title": "Upstream chart values",
+      "description": "Passthrough to the upstream trust-manager chart. Helm requires subchart values to live under a key named after the subchart. The two values the platform derives are typed here; every other upstream value passes through as written.",
+      "x-kubernetes-preserve-unknown-fields": true,
+      "properties": {
+        "app": {
+          "type": "object",
+          "title": "trust-manager controller",
+          "x-kubernetes-preserve-unknown-fields": true,
+          "properties": {
+            "trust": {
+              "type": "object",
+              "title": "Trust namespace",
+              "x-kubernetes-preserve-unknown-fields": true,
+              "properties": {
+                "namespace": {
+                  "type": "string",
+                  "title": "Trust namespace",
+                  "description": "The only namespace trust-manager reads Bundle sources from. It must be the namespace holding the internal CA's Secret (cert-manager-issuers' internalCA.namespace, cert-manager's cluster resource namespace). Upstream default: cert-manager.",
+                  "maxLength": 63,
+                  "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+                }
+              }
+            },
+            "targetNamespaces": {
+              "type": "array",
+              "title": "Target namespaces",
+              "description": "Namespaces trust-manager may write Bundle targets into. When set, its ConfigMap rights are Roles in these namespaces plus the trust and release namespaces. When unset (upstream's default), a ClusterRole grants ConfigMap create, patch and delete in every namespace. List exactly internal-ca-bundle's target.namespaces.",
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "maxLength": 63,
+                "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

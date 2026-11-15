@@ -1,0 +1,19 @@
+# Installs upstream trust-manager and nothing else.
+#
+# This chart exists so the platform installs trust-manager at a version of its own:
+# jetstack publishes the chart as `v0.20.0`, and a leading `v` in a chart version
+# does not survive the installer's and core-provider's version handling (the
+# CompositionDefinition served `vv0-20-0` while the installer looked for `v0-20-0`,
+# so trust-manager was never installed). This chart is versioned by this
+# repository's tag; `appVersion` carries jetstack's string.
+#
+# It is also a chart of its own, rather than part of internal-ca-bundle, for the
+# same reason cert-manager is split from cert-manager-issuers: Helm applies a
+# release in one pass, so the trust.cert-manager.io CRD delivered here would not
+# be established when a Bundle in the same release is applied.
+#
+# Every upstream value is set under the `trust-manager` key (Helm requires a
+# subchart's values to live under its name). Upstream's defaults apply unless set
+# here; this chart sets none.
+
+trust-manager: {}

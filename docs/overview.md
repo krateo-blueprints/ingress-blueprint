@@ -49,6 +49,12 @@ subchart's values are rejected.
   it.
 - **`external-dns`** — configures the upstream ExternalDNS workload to publish records for
   Gateway API `HTTPRoute`s and `Service`s to an external provider.
+- **`trust-manager`** — installs the upstream trust-manager operator, its `Bundle` CRD and
+  its admission webhook, and nothing else. It is versioned by this repository's tag, with
+  jetstack's version in `appVersion`: jetstack publishes the chart as `v0.20.0`, and a leading
+  `v` in a chart version does not survive the installer's and core-provider's version naming
+  (the CompositionDefinition served `vv0-20-0` while the installer looked for `v0-20-0`, so
+  trust-manager was silently never installed).
 - **`internal-ca-bundle`** — renders one trust-manager `Bundle` that copies the internal CA's
   public certificate (`krateo-root-ca-key-pair`, key `ca.crt`) into a ConfigMap in each listed
   namespace, so in-cluster clients can trust services whose certificates the CA issues.
@@ -79,7 +85,7 @@ installer orders it after trust-manager's API is served.
 The CA's three namespaces must agree. `cert-manager-issuers` writes the CA Secret in
 `internalCA.namespace` (default: its release namespace). cert-manager reads CA Secrets from its
 cluster resource namespace (by default the namespace it runs in). trust-manager reads `Bundle`
-sources from its trust namespace (`app.trust.namespace`). With cert-manager installed elsewhere
+sources from its trust namespace (`trust-manager.app.trust.namespace`). With cert-manager installed elsewhere
 than the issuers' release namespace, set `internalCA.namespace` and trust-manager's trust
 namespace to cert-manager's namespace.
 

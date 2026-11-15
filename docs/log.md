@@ -12,6 +12,15 @@ timestamp: 2026-11-15T00:00:00+00:00
 
 # Changelog
 
+## 2026-11-15 (0.16.0)
+
+- Releases stamp `org.opencontainers.image.{revision,source,version,ref.name}` into every
+  chart and refuse to push a package that doesn't carry the tag's commit.
+- `cert-manager-issuers` and `internal-ca-bundle` list this repository as their `sources`.
+  They render only cert-manager/trust-manager resources and ship no upstream code, so the
+  upstream project was not a build input; it stays named in their descriptions. Values and
+  templates are unchanged.
+
 ## 2026-11-15
 
 - Added the `internal-ca-bundle` chart: one trust-manager `Bundle` copying the internal CA's

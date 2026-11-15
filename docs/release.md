@@ -8,7 +8,7 @@ tags:
   - release
   - runbook
   - oci
-timestamp: 2026-08-11T00:00:00+00:00
+timestamp: 2026-11-15T00:00:00+00:00
 ---
 
 # Release runbook
@@ -33,8 +33,12 @@ the source stays version-agnostic and the tag is the single source of truth.
    the tag.
 3. `release-tag.yaml` runs on the tag push. For every discovered chart it:
    - stamps `CHART_VERSION` → the tag in `Chart.yaml`,
+   - stamps provenance into `Chart.yaml`: `org.opencontainers.image.revision` (the tag's
+     commit), `.source` (this repository), `.version` and `.ref.name` (the tag). installer's
+     pin-CI gate reads them, together with `sources`, to assert this repository's CI for a pin,
    - runs `helm dependency update` to vendor upstream dependencies,
    - runs `helm package --version <tag>`,
+   - refuses to push a package whose `Chart.yaml` does not carry the tag's commit,
    - runs `helm push` to the OCI registry.
 
 ## Where charts land

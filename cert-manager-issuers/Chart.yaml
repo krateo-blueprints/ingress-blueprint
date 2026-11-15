@@ -10,5 +10,9 @@ version: CHART_VERSION
 appVersion: "v1.21.1"
 home: https://krateo.io
 keywords: [krateo, platformops, tls, cert-manager]
+# The repository that builds this chart. It renders only cert-manager/trust-manager custom
+# resources and ships no upstream code, so the upstream project is not a source here (it is
+# named in the description and docs). installer's pin-CI gate resolves a pin's CI through
+# these repositories; an upstream repo here would make it assert upstream's CI instead.
 sources:
-  - https://github.com/cert-manager/cert-manager
+  - https://github.com/krateo-blueprints/ingress-blueprint

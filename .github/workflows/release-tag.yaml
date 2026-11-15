@@ -36,6 +36,14 @@ jobs:
             helm registry login ghcr.io --username "${{ github.actor }}" --password-stdin
 
       - name: Package and push every chart
+        env:
+          # Provenance stamped into every chart (see the loop): the commit and repository that
+          # built this version. installer's pin-CI gate reads them to assert THIS repo's CI for a
+          # pin, the same org.opencontainers.image.* set the krateo-platformops release-oci
+          # reusable stamps.
+          GIT_SHA: ${{ github.sha }}
+          SRC_URL: ${{ github.server_url }}/${{ github.repository }}
+          SRC_REF: ${{ github.ref_name }}
         run: |
           set -euo pipefail
           find . -type f -name Chart.yaml -not -path '*/charts/*' -print0 | while IFS= read -r -d '' cf; do
@@ -44,6 +52,16 @@ jobs:
             echo "::group::${name} (${dir})"
             # Stamp the CHART_VERSION placeholder, and pin the package version to the tag either way.
             sed -i "s/CHART_VERSION/${VERSION}/g" "$cf"
+            # Stamp provenance: the commit and repository that built this version. Truthful here
+            # because a tag publishes every chart at a NEW version, so a version is only ever built
+            # from its own tag's commit (re-running the same tag re-stamps the same commit). Only
+            # deterministic values: a timestamp such as image.created would differ on every run.
+            yq -i '
+              .annotations."org.opencontainers.image.revision" = strenv(GIT_SHA) |
+              .annotations."org.opencontainers.image.source"   = strenv(SRC_URL) |
+              .annotations."org.opencontainers.image.version"  = strenv(VERSION) |
+              .annotations."org.opencontainers.image.ref.name" = strenv(SRC_REF)
+            ' "$cf"
             # Dependency fetch is retried: a subchart pulled from an upstream Helm repo
             # (external-dns from kubernetes-sigs.github.io) fails transiently, and because
             # the fetch failure was swallowed with `|| true`, `helm package` then died hard
@@ -65,6 +83,16 @@ jobs:
               fi
             fi
             helm package "$dir" --version "${VERSION}" --destination .
+            # Check the package, not the source file: refuse to push a chart whose packaged
+            # Chart.yaml does not carry this commit, so an unstamped version never reaches the
+            # registry looking released.
+            stamped="$(tar -xzOf "${name}-${VERSION}.tgz" "${name}/Chart.yaml" \
+              | yq -r '.annotations."org.opencontainers.image.revision" // ""')"
+            if [ "${stamped}" != "${GIT_SHA}" ]; then
+              echo "::error::${name}: packaged chart carries revision '${stamped:-<none>}', expected ${GIT_SHA}; not pushing"
+              exit 1
+            fi
+            echo "provenance: ${name}-${VERSION}.tgz -> ${stamped}"
             helm push "${name}-${VERSION}.tgz" "${OCI_REPO}"
             echo "Published ${OCI_REPO}/${name}:${VERSION}"
             echo "::endgroup::"

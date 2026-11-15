@@ -1,0 +1,18 @@
+apiVersion: v2
+name: trust-manager
+description: >-
+  Krateo blueprint that installs upstream trust-manager (operator, Bundle CRD and
+  its admission webhook). Ships no Bundle of its own: internal-ca-bundle renders
+  the platform's Bundle once trust-manager's API is served.
+type: application
+version: CHART_VERSION
+appVersion: "v0.20.0"
+home: https://krateo.io
+keywords: [krateo, platformops, tls, trust-manager, cert-manager]
+sources:
+  - https://github.com/krateo-blueprints/ingress-blueprint
+  - https://github.com/cert-manager/trust-manager
+dependencies:
+  - name: trust-manager
+    version: "v0.20.0"
+    repository: https://charts.jetstack.io

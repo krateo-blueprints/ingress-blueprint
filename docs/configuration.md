@@ -1,7 +1,7 @@
 ---
 type: Configuration
 title: ingress-blueprint configuration
-description: The curated value surface exposed by each edge blueprint — agentgateway, cert-manager, cert-manager-issuers, external-dns and gateway-api-crds.
+description: The curated value surface exposed by each edge blueprint — agentgateway, cert-manager, cert-manager-issuers, trust-manager, internal-ca-bundle, external-dns and gateway-api-crds.
 resource: ingress-blueprint
 tags:
   - krateo
@@ -59,6 +59,20 @@ fixed in `values.yaml`:
 | `acmeDns01.email` | string | `""` | Required when enabled. |
 | `acmeDns01.cloudflare.apiTokenSecretRef` | object | `cloudflare-api-token` / `api-token` | Reference to the out-of-band Secret holding the DNS API token, in cert-manager's cluster resource namespace. |
 
+## trust-manager
+
+Installs the operator, its `Bundle` CRD and admission webhook. Every upstream value goes under
+the `trust-manager:` key, and upstream's defaults apply. Two values are typed, because the
+platform derives them:
+
+| Key | Type | Default | Notes |
+|---|---|---|---|
+| `trust-manager.app.trust.namespace` | string (DNS-1123 label) | `cert-manager` (upstream) | The only namespace trust-manager reads `Bundle` sources from. Must be `cert-manager-issuers`' `internalCA.namespace`. |
+| `trust-manager.app.targetNamespaces` | array of DNS-1123 labels, unique | unset (upstream) | Namespaces trust-manager may write `Bundle` targets into. Set: its ConfigMap rights are Roles in these namespaces plus the trust and release namespaces. Unset: a ClusterRole grants ConfigMap create, patch and delete in every namespace. List exactly `internal-ca-bundle`'s `target.namespaces`. |
+
+The installer's `features.internalTls` sets both, from `internalTls.certManagerNamespace` and
+`internal-ca-bundle.target.namespaces`.
+
 ## internal-ca-bundle
 
 | Key | Type | Default | Notes |
@@ -69,7 +83,7 @@ fixed in `values.yaml`:
 
 The source is fixed, not a value: the Secret `krateo-root-ca-key-pair`, key `ca.crt`, which
 `cert-manager-issuers` writes. Only the public certificate is copied. trust-manager reads the
-source from its trust namespace (`app.trust.namespace`), which must be `cert-manager-issuers`'
+source from its trust namespace (`trust-manager.app.trust.namespace`), which must be `cert-manager-issuers`'
 `internalCA.namespace`.
 
 ## external-dns

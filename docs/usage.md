@@ -108,7 +108,7 @@ them.
 
 `internal-ca-bundle` lets in-cluster clients trust services whose certificates the internal CA
 issues (authn's internal listener, for one). The installer's `features.internalTls` enables
-`cert-manager-issuers`, upstream trust-manager and `internal-ca-bundle`; cert-manager itself
+`cert-manager-issuers`, the `trust-manager` blueprint and `internal-ca-bundle`; cert-manager itself
 must already be served. `internal-ca-bundle` waits for trust-manager's `trust.cert-manager.io`
 API.
 
@@ -118,13 +118,19 @@ componentValues:
     internalCA:
       namespace: cert-manager   # the namespace cert-manager runs in
   trust-manager:
-    app:
-      trust:
-        namespace: cert-manager # the same namespace
+    trust-manager:              # upstream values go under the subchart's name
+      app:
+        trust:
+          namespace: cert-manager      # the same namespace
+        targetNamespaces: [krateo-system]  # exactly internal-ca-bundle's list
   internal-ca-bundle:
     target:
       namespaces: [krateo-system]  # where the clients run
 ```
+
+The installer's `features.internalTls` derives both `trust-manager` values (from
+`internalTls.certManagerNamespace` and `internal-ca-bundle.target.namespaces`), so on an
+installer-managed cluster neither is set by hand.
 
 Each listed namespace gets the ConfigMap `krateo-internal-ca` holding only the CA's public
 certificate under `ca.crt`. A client mounts that key as its root CA. Never point a client at

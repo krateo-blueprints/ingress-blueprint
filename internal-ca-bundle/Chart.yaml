@@ -1,0 +1,18 @@
+apiVersion: v2
+name: internal-ca-bundle
+description: >-
+  Krateo blueprint distributing the platform's internal CA certificate (from
+  cert-manager-issuers) to the namespaces whose workloads must trust it, as a
+  trust-manager Bundle. Renders only the Bundle. Requires trust-manager to be
+  installed first; it deliberately does NOT install it.
+type: application
+version: CHART_VERSION
+appVersion: "v0.20.0"
+home: https://krateo.io
+keywords:
+  - krateo
+  - platformops
+  - tls
+  - trust-manager
+sources:
+  - https://github.com/cert-manager/trust-manager

@@ -8,7 +8,7 @@ tags:
   - architecture
   - gateway-api
   - cert-manager
-timestamp: 2026-08-11T00:00:00+00:00
+timestamp: 2026-11-15T00:00:00+00:00
 ---
 
 # Architecture
@@ -32,7 +32,7 @@ vendoring its templates. Helm places a subchart's values under a top-level key n
 the subchart, so a schema with `additionalProperties: false` must declare that key or the
 subchart's values are rejected.
 
-## The five charts
+## The charts
 
 - **`gateway-api-crds`** — ships the upstream Gateway API standard CRDs (bundle-version
   v1.3.0) verbatim. Shared edge infrastructure the Gateway, the `HTTPRoute`s and the ACME
@@ -49,6 +49,10 @@ subchart's values are rejected.
   it.
 - **`external-dns`** — configures the upstream ExternalDNS workload to publish records for
   Gateway API `HTTPRoute`s and `Service`s to an external provider.
+- **`internal-ca-bundle`** — renders one trust-manager `Bundle` that copies the internal CA's
+  public certificate (`krateo-root-ca-key-pair`, key `ca.crt`) into a ConfigMap in each listed
+  namespace, so in-cluster clients can trust services whose certificates the CA issues.
+  Depends on trust-manager; it deliberately does not install it.
 
 ## Install ordering
 
@@ -65,6 +69,19 @@ when the same release's `ClusterIssuer` templates are applied, failing with
 `no matches for kind "ClusterIssuer" in version "cert-manager.io/v1"`. Splitting the operator
 from the Issuers turns a race inside one release into an ordering between two components,
 which the installer already models.
+
+`internal-ca-bundle` is a separate chart for the same reason. Its `Bundle` needs the
+`trust.cert-manager.io` CRDs, which trust-manager installs. Inside `cert-manager-issuers` it
+would race trust-manager in one release, and gating the issuers on trust-manager's API would
+block every install that wants issuers but not trust-manager. As its own component, the
+installer orders it after trust-manager's API is served.
+
+The CA's three namespaces must agree. `cert-manager-issuers` writes the CA Secret in
+`internalCA.namespace` (default: its release namespace). cert-manager reads CA Secrets from its
+cluster resource namespace (by default the namespace it runs in). trust-manager reads `Bundle`
+sources from its trust namespace (`app.trust.namespace`). With cert-manager installed elsewhere
+than the issuers' release namespace, set `internalCA.namespace` and trust-manager's trust
+namespace to cert-manager's namespace.
 
 ## Where a curated surface can and cannot go
 

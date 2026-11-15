@@ -1,0 +1,55 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema",
+  "type": "object",
+  "title": "Internal CA trust bundle",
+  "description": "Distributes the platform's internal CA certificate (cert-manager-issuers' krateo-root-ca-key-pair, key ca.crt) as a trust-manager Bundle: a ConfigMap holding only the public certificate, in each listed namespace. Requires trust-manager, whose trust namespace must be cert-manager-issuers' internalCA.namespace.",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "target"
+  ],
+  "properties": {
+    "global": {
+      "type": "object",
+      "title": "Global values"
+    },
+    "name": {
+      "type": "string",
+      "title": "Bundle name",
+      "description": "The Bundle's name, and the name of the ConfigMap written in each target namespace.",
+      "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$",
+      "maxLength": 253,
+      "default": "krateo-internal-ca"
+    },
+    "target": {
+      "type": "object",
+      "title": "Target",
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "namespaces"
+      ],
+      "properties": {
+        "key": {
+          "type": "string",
+          "title": "ConfigMap key",
+          "description": "The key the CA certificate is written under.",
+          "pattern": "^[-._a-zA-Z0-9]+$",
+          "maxLength": 253,
+          "default": "ca.crt"
+        },
+        "namespaces": {
+          "type": "array",
+          "title": "Namespaces",
+          "description": "The namespaces to write the ConfigMap in. Required when rendered: an empty list fails the render, because a Bundle without a namespace selector writes to every namespace.",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+            "maxLength": 63
+          }
+        }
+      }
+    }
+  }
+}

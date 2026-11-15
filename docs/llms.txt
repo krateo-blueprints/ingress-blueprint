@@ -11,9 +11,10 @@ Enabling features.ingress on the Installer stands up the whole edge from one Ins
 - cert-manager: upstream cert-manager operator + CRDs, Gateway API support on.
 - cert-manager-issuers: platform ClusterIssuers (internal CA, ACME HTTP-01, ACME DNS-01).
 - external-dns: upstream ExternalDNS publishing HTTPRoute and Service records.
+- internal-ca-bundle: trust-manager Bundle copying the internal CA certificate to listed namespaces.
 
 ## Docs
-docs/index.md: Entry point and the five charts at a glance.
+docs/index.md: Entry point and the charts at a glance.
 docs/overview.md: Architecture, install ordering, and the curated-surface constraints.
 docs/usage.md: Enabling features.ingress and driving the edge from the Installer.
 docs/configuration.md: The curated value surface, per chart.

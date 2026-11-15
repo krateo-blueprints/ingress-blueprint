@@ -32,6 +32,14 @@
           "title": "ClusterIssuer name",
           "minLength": 1,
           "default": "krateo-selfsigned-ca"
+        },
+        "namespace": {
+          "type": "string",
+          "title": "CA namespace",
+          "description": "The namespace the root CA Certificate and its Secret krateo-root-ca-key-pair are written in. Must be cert-manager's cluster resource namespace (by default the namespace cert-manager runs in), or the CA ClusterIssuer never becomes Ready. Empty: this release's namespace.",
+          "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?)?$",
+          "maxLength": 63,
+          "default": ""
         }
       }
     },

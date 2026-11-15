@@ -8,7 +8,7 @@ tags:
   - ingress
   - gateway-api
   - blueprint
-timestamp: 2026-08-11T00:00:00+00:00
+timestamp: 2026-11-15T00:00:00+00:00
 ---
 
 # ingress-blueprint
@@ -32,12 +32,14 @@ wrapping the upstream charts as dependencies rather than vendoring their templat
 | `agentgateway` | The upstream **agentgateway** controller plus the platform `GatewayClass` + `Gateway`. | agentgateway/agentgateway |
 | `cert-manager` | Upstream **cert-manager** operator + CRDs (with Gateway API support on). | cert-manager/cert-manager |
 | `cert-manager-issuers` | The platform's **ClusterIssuers**: an internal self-signed CA chain and optional public ACME issuers. | cert-manager/cert-manager |
+| `internal-ca-bundle` | A trust-manager **Bundle** distributing the internal CA's public certificate to the listed namespaces. | cert-manager/trust-manager |
 | `external-dns` | Upstream **ExternalDNS**, publishing records for Gateway API and Service resources. | kubernetes-sigs/external-dns |
 
 **Install order** (dependency-chained in the installer registration):
 `gateway-api-crds` → `agentgateway` → `cert-manager` → `cert-manager-issuers` /
 `external-dns`. The CRDs must be served before the Gateway; the Gateway must exist before the
-ACME `gatewayRef` and the per-component `HTTPRoute`s attach to it.
+ACME `gatewayRef` and the per-component `HTTPRoute`s attach to it. `internal-ca-bundle` is
+ordered after trust-manager instead (`features.internalTls`).
 
 ## Documentation
 

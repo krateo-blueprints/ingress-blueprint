@@ -14,6 +14,14 @@
 internalCA:
   enabled: true
   name: krateo-selfsigned-ca
+  # The namespace the root CA Certificate, and so its Secret krateo-root-ca-key-pair, is
+  # written in. The CA ClusterIssuer reads that Secret from cert-manager's cluster resource
+  # namespace (by default the namespace cert-manager runs in), so this must be that
+  # namespace. Empty: this release's namespace, right when cert-manager runs in it too. Set
+  # it when cert-manager runs elsewhere, e.g. installed separately in `cert-manager`. The
+  # namespace must already exist. internal-ca-bundle's trust-manager reads the Secret from
+  # its trust namespace, which must be this same namespace.
+  namespace: ""
 
 # Public ACME issuer. Off by default because it needs a real account email and a
 # reachable Gateway to answer the HTTP-01 challenge.

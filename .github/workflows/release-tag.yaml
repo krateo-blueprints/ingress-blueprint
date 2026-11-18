@@ -30,7 +30,21 @@ env:
   CHANNELS: operators
 
 jobs:
+  # krateo-blueprints/charts PUBLISHING.md rule 12: the release runs this repository's preflight before it pushes
+  # anything. The shared job refuses a version that is not a plain X.Y.Z (rule 13), then runs hack/release-preflight
+  # if there is one. This workflow runs only on a release tag, so the job always runs, and the pushing job needs it to
+  # have succeeded: `needs:` with no `if:` accepts only success, so a failed, skipped or cancelled preflight pushes
+  # nothing.
+  release-preflight:
+    uses: krateo-blueprints/charts/.github/workflows/release-preflight.yaml@f0bbd3da219685bafb130e77922c192558972a43 # 1.4.4
+    permissions:
+      contents: read
+    with:
+      version: ${{ github.ref_name }}
+
   package-and-push:
+    needs:
+      - release-preflight
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -259,11 +273,25 @@ jobs:
             exit 1
           fi
 
+      # krateo-blueprints/charts PUBLISHING.md rule 14: charts are pushed through the organisation's chart-push action.
+      # Its push.sh retries GHCR's tag read-after-write race (an accepted manifest PUT, then "sha256:<digest>: not
+      # found" on the tag step), and only that, onto the same digest, and sends the read-back's credentials on curl's
+      # stdin, never its command line. Locate mode: the action outputs push.sh's path, and the push runs it once per
+      # chart, after the registry login above.
+      - name: Locate the shared chart push
+        id: chart-push
+        uses: krateo-platformops/.github/.github/actions/chart-push@3ff640fd0dbef64c29b7a63a88b98da7f99e8052 # 1.0.1
+
       - name: Push every chart to GHCR
+        env:
+          CHART_PUSH: ${{ steps.chart-push.outputs.path }}
+          # push.sh reads each manifest back with these (on curl's stdin), after the registry login above.
+          REGISTRY_USERNAME: ${{ github.actor }}
+          REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           for tgz in dist/*/*.tgz; do
-            helm push "$tgz" "${OCI_REPO}"
+            bash "${CHART_PUSH}" "$tgz" "${OCI_REPO}"
             echo "Published ${OCI_REPO}/$(basename "$tgz" .tgz)"
           done
 
@@ -282,7 +310,7 @@ jobs:
   publish-index:
     needs: package-and-push
     # PUBLISHING.md rule 9: pinned by full commit SHA; .github/dependabot.yml keeps it current.
-    uses: krateo-blueprints/charts/.github/workflows/publish-chart.yaml@1e6210ab2a8b66ff1a8d6da86287e671154f44a2 # 1.0.4
+    uses: krateo-blueprints/charts/.github/workflows/publish-chart.yaml@f0bbd3da219685bafb130e77922c192558972a43 # 1.4.4
     with:
       source_repo: ${{ github.repository }}
       git_tag: ${{ github.ref_name }}

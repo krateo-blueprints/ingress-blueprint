@@ -14,6 +14,13 @@ timestamp: 2026-11-15T00:00:00+00:00
 
 ## Unreleased
 
+- `gateway-api-crds`: the five CRDs carry `helm.sh/resource-policy: keep`, so a release that stops
+  rendering them no longer deletes them, and every Gateway and HTTPRoute with them. A parent chart
+  switching this dependency's `condition` off did exactly that. They now also survive an uninstall;
+  see [configuration.md](configuration.md#gateway-api-crds). Upgrade to this version first and stop
+  rendering them later: in one step helm still sees the live CRDs without the annotation and deletes
+  them. The vendored file is unchanged.
+
 - `cert-manager-issuers`: the internal root CA keeps its private key across renewals
   (`privateKey.rotationPolicy: Never`, `duration: 87600h`, `renewBefore: 8760h`). On cert-manager's
   defaults (90 days, and since v1.18 a new key at every re-issue) the root re-keyed at each

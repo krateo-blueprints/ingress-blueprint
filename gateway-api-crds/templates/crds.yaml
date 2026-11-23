@@ -4,5 +4,18 @@
   .Files.Get — so their (large) content is never run through the template engine. Rendered as
   composition-managed resources (not helm crds/) so a version bump propagates on reconcile.
   To upgrade: replace files/standard-install.yaml with a newer release and bump Chart appVersion.
+
+  Every CRD gets `helm.sh/resource-policy: keep`. Being ordinary templates, helm would otherwise
+  DELETE them, and with them every Gateway and HTTPRoute on the cluster, whenever a release stops
+  rendering them: an uninstall, or a parent chart switching this dependency's `condition` off.
+  The annotation is injected here, next to the one upstream puts on every CRD, so the vendored file
+  stays verbatim. The count check refuses to render if upstream's layout changes and one is missed.
 */}}
-{{ .Files.Get "files/standard-install.yaml" }}
+{{- $crds := .Files.Get "files/standard-install.yaml" -}}
+{{- $anchor := "    api-approved.kubernetes.io:" -}}
+{{- $want := len (regexFindAll "(?m)^kind: CustomResourceDefinition" $crds -1) -}}
+{{- $got := len (regexFindAll "(?m)^    api-approved\\.kubernetes\\.io:" $crds -1) -}}
+{{- if or (eq $want 0) (ne $want $got) -}}
+{{- fail (printf "gateway-api-crds: files/standard-install.yaml has %d CRDs but %d api-approved annotations; every CRD must get helm.sh/resource-policy: keep, so templates/crds.yaml needs a new anchor" $want $got) -}}
+{{- end }}
+{{ $crds | replace $anchor (printf "    helm.sh/resource-policy: keep\n%s" $anchor) }}

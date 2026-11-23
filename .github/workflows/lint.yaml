@@ -55,3 +55,19 @@ jobs:
             helm lint "$dir" || true
             echo "::endgroup::"
           done < <(find . -type f -name Chart.yaml -not -path '*/charts/*' -not -path './.git/*' -print0)
+
+      # Blocking: helm deletes a CRD a release stops rendering, and every object of its kind with it,
+      # unless the CRD is marked keep.
+      - name: Every gateway-api-crds CRD is kept
+        run: |
+          set -euo pipefail
+          helm template release gateway-api-crds > /tmp/gateway-api-crds.yaml
+          python3 - <<'PY'
+          import yaml
+          crds = [d for d in yaml.safe_load_all(open("/tmp/gateway-api-crds.yaml"))
+                  if d and d["kind"] == "CustomResourceDefinition"]
+          bad = [d["metadata"]["name"] for d in crds
+                 if d["metadata"].get("annotations", {}).get("helm.sh/resource-policy") != "keep"]
+          print(f"{len(crds)} CRDs, not kept: {bad}")
+          assert crds and not bad
+          PY

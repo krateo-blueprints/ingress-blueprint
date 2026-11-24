@@ -108,3 +108,10 @@ any other upstream value remains reachable as an escape hatch.
 
 No tunable values. Ships the upstream standard CRDs (bundle-version v1.3.0) verbatim; upgrade
 by re-vendoring `files/standard-install.yaml` and bumping the chart `appVersion`.
+
+Every CRD is rendered with `helm.sh/resource-policy: keep`: helm never deletes them, whether a
+release is uninstalled or a parent chart stops rendering this one. After an uninstall they stay, with
+every Gateway and HTTPRoute, and keep the old release's ownership annotations. Delete them by hand
+for a full teardown. To install them from a release of another name or namespace, first move
+`meta.helm.sh/release-name` and `meta.helm.sh/release-namespace` on each CRD, or helm refuses with
+`invalid ownership metadata`.

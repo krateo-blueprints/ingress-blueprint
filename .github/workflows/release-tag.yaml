@@ -36,7 +36,7 @@ jobs:
   # have succeeded: `needs:` with no `if:` accepts only success, so a failed, skipped or cancelled preflight pushes
   # nothing.
   release-preflight:
-    uses: krateo-blueprints/charts/.github/workflows/release-preflight.yaml@f0bbd3da219685bafb130e77922c192558972a43 # 1.4.4
+    uses: krateo-blueprints/charts/.github/workflows/release-preflight.yaml@8250e1ba39066b80c8fc52067aaaf4363688cb65 # 1.12.0
     permissions:
       contents: read
     with:

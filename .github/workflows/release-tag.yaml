@@ -280,7 +280,7 @@ jobs:
       # chart, after the registry login above.
       - name: Locate the shared chart push
         id: chart-push
-        uses: krateo-platformops/.github/.github/actions/chart-push@3ff640fd0dbef64c29b7a63a88b98da7f99e8052 # 1.0.1
+        uses: krateo-platformops/.github/.github/actions/chart-push@7da11cb60cee5cbfc7d9e8c9328692807b43cefd # 2.0.0
 
       - name: Push every chart to GHCR
         env:
